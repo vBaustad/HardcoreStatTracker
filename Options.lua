@@ -330,52 +330,54 @@ function HC:BuildLastWordsOptions()
         return cb
     end
 
-    add("lw_enabled", "Enable Famous Last Words", 16, -60,
+    -- The subtitle wraps to ~3 lines and spans both columns, so all content
+    -- starts below it (y = -100).
+    add("lw_enabled", "Enable Famous Last Words", 16, -100,
         function() return LW().enabled end, function(v) LW().enabled = v end,
         "Master switch for the low-health announcement and alert.")
 
     -- Chat announcement + its own threshold
-    add("lw_say", "Announce a message in chat", 16, -90,
+    add("lw_say", "Announce a message in chat", 16, -130,
         function() return LW().say end, function(v) LW().say = v end,
         "Broadcast a random line to chat when you drop low.")
-    add("lw_yell", "Use /yell instead of /say", 36, -114,
+    add("lw_yell", "Use /yell instead of /say", 36, -154,
         function() return LW().channel == "YELL" end,
         function(v) LW().channel = v and "YELL" or "SAY" end,
         "Yell reaches further than say.")
-    local sayThr = MakeSlider(panel, "lwsaythr", 40, -148, 5, 60, 1,
+    local sayThr = MakeSlider(panel, "lwsaythr", 40, -192, 5, 60, 1,
         function(v) return "Announce at or below: " .. v .. "%" end,
         function() return LW().sayThreshold or 15 end,
         function(v) LW().sayThreshold = v end)
 
     -- Attention alert + its own (usually higher) threshold
-    add("lw_alertSelf", "Alert me (screen flash + sound)", 16, -190,
+    add("lw_alertSelf", "Alert me (screen flash + sound)", 16, -234,
         function() return LW().alertSelf end, function(v) LW().alertSelf = v end,
         "Flash a red low-health vignette and play a warning sound - an attention "
         .. "grab if you weren't watching your health.")
-    local alertThr = MakeSlider(panel, "lwalertthr", 40, -224, 5, 60, 1,
+    local alertThr = MakeSlider(panel, "lwalertthr", 40, -272, 5, 60, 1,
         function(v) return "Alert at or below: " .. v .. "%" end,
         function() return LW().alertThreshold or 30 end,
         function(v) LW().alertThreshold = v end)
 
-    add("lw_useDefaults", "Include the built-in messages (a surprise pool)", 16, -262,
+    add("lw_useDefaults", "Include the built-in messages (a surprise pool)", 16, -310,
         function() return LW().useDefaults end, function(v) LW().useDefaults = v end,
         "Mixes the addon's hidden built-in lines in with yours (50/50). "
         .. "Uncheck to broadcast ONLY your own messages.")
 
     local testBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     testBtn:SetSize(90, 22)
-    testBtn:SetPoint("TOPLEFT", 16, -296)
+    testBtn:SetPoint("TOPLEFT", 16, -346)
     testBtn:SetText("Test")
     testBtn:SetScript("OnClick", function() if HC.TestDanger then HC:TestDanger() end end)
 
     -- Custom-messages editor (right column): add box + removable list.
     local cmLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    cmLabel:SetPoint("TOPLEFT", 320, -58)
+    cmLabel:SetPoint("TOPLEFT", 320, -102)
     cmLabel:SetText("Your own messages:")
 
     local input = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
     input:SetSize(176, 20)
-    input:SetPoint("TOPLEFT", 326, -78)
+    input:SetPoint("TOPLEFT", 326, -124)
     input:SetAutoFocus(false)
     input:SetMaxLetters(255)
 
@@ -386,7 +388,7 @@ function HC:BuildLastWordsOptions()
 
     -- Scrollable list of saved messages, each with an [X] to remove it.
     local box = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-    box:SetPoint("TOPLEFT", 320, -104)
+    box:SetPoint("TOPLEFT", 320, -152)
     box:SetSize(270, 150)
     box:SetBackdrop({
         bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
