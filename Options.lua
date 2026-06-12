@@ -157,37 +157,17 @@ function HC:BuildOptions()
         checks[key] = cb
     end
 
-    -- Reset buttons live here (a deliberate spot), not on the stats window.
+    -- Reset lives here (a deliberate spot), not on the stats window.
     local resetY = startY - perCol * rowH - 16
     local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    resetBtn:SetSize(150, 22)
+    resetBtn:SetSize(160, 22)
     resetBtn:SetPoint("TOPLEFT", 16, resetY)
     resetBtn:SetText("Reset all records")
     resetBtn:SetScript("OnClick", function() StaticPopup_Show("HCSTATS_RESET") end)
 
-    -- Debug: zero only the three hit records so the comic splash can re-trigger.
-    local hitResetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    hitResetBtn:SetSize(170, 22)
-    hitResetBtn:SetPoint("LEFT", resetBtn, "RIGHT", 12, 0)
-    hitResetBtn:SetText("Reset hit records (debug)")
-    hitResetBtn:SetScript("OnClick", function()
-        if HC.ResetHitRecords then HC:ResetHitRecords() end
-    end)
-
-    -- Debug: preview the first-install welcome window on demand.
-    local welcomeBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    welcomeBtn:SetSize(130, 22)
-    welcomeBtn:SetPoint("LEFT", hitResetBtn, "RIGHT", 12, 0)
-    welcomeBtn:SetText("Show welcome")
-    welcomeBtn:SetScript("OnClick", function()
-        if HC.ShowWelcome then HC:ShowWelcome() end
-    end)
-
     local resetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    resetNote:SetPoint("TOPLEFT", resetBtn, "BOTTOMLEFT", 0, -6)
-    resetNote:SetWidth(540); resetNote:SetJustifyH("LEFT")
-    resetNote:SetText("Reset all: clears every record for this character (keeps Time Alive, asks first). "
-        .. "Hit records: zeroes crit / melee / ranged only, for testing the splash.")
+    resetNote:SetPoint("LEFT", resetBtn, "RIGHT", 10, 0)
+    resetNote:SetText("Clears every record for this character (keeps Time Alive). Asks first.")
 
     local function Refresh()
         if not HC.db then return end
