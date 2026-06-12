@@ -9,6 +9,8 @@
 ## X-Category: Combat
 ## X-Website: https://github.com/vBaustad/HCStats
 ## X-License: MIT
+# After creating the CurseForge project, set the ID below and change the '#' to '##':
+# X-Curse-Project-ID: 000000
 
 HCStats.lua
 Options.lua
