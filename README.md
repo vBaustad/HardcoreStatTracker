@@ -12,10 +12,11 @@
 - **Adventure** — quests completed, zones explored, total damage taken, time alive.
 - **Mak'gora (account-wide)** — duels won and lost, persisting across all your characters.
 - **Mob tooltips (account-wide)** — hover a mob and see "Has hit you for up to X (at lvl Y)" if it's hurt any of your characters before. Your new character inherits the warnings.
-- **Famous Last Words** — optional: when you drop low, broadcast a cocky/ironic line to chat (built-in surprise pool + your own messages) and/or flash a low-health warning. Independent thresholds for the chat line and the alert.
+- **Comic splashes** — optional fun: a comic-book **POW! / BOOM! / ZAP!** pops on screen when you set a new record (crit / melee / ranged by default). Each splash can be turned off, dragged anywhere, and linked to any record stat you like.
+- **Famous Last Words** — optional: when you drop low, broadcast a cocky/ironic line to chat (built-in surprise pool + your own messages) and/or fire an attention alert (screen flash + sound). Independent thresholds for the chat line and the alert.
 - **Record announcements** — optional: a few seconds after a fight you survive, brag about new personal bests in party chat (or /say solo, never raid; optional guild-only), with a per-fight cap so it stays rare.
-- **Two views** — a customizable mini panel (pick exactly which stats show; pets default to pet classes only) and a designed two-column full window with icons, a color-coded danger bar, per-stat explanation tooltips, and Escape-to-close.
-- **Adjustable** — text size, panel scale, draggable frames, full per-stat visibility control.
+- **Two views** — a customizable mini panel (pick exactly which stats show; pets default to pet classes only) and a designed two-column full window with icons, a color-coded danger bar, per-stat explanation tooltips, a background-opacity slider, "new!" highlights on fresh records, and Escape-to-close.
+- **Adjustable** — text size, panel scale, background opacity, draggable frames, full per-stat visibility control.
 
 ## Installation
 
@@ -34,6 +35,8 @@
 - `/hcstats` — toggle the mini panel
 - `/hcstats full` — open the full window
 - `/hcstats config` — open settings
+- `/hcstats splashes` — enter placement mode to drag the comic splashes
+- `/hcstats welcome` — show the welcome window again
 - `/hcstats reset` — clear this character's records (account-wide Mak'gora is kept)
 - `/hcstats makgora won|lost` — manually record a Mak'gora result
 - `/hcstats makgora debug` — print the raw Mak'gora system message (to refine auto-detection)
