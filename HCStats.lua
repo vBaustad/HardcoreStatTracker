@@ -250,6 +250,15 @@ local function ApplyDefaults()
     if lw.useDefaults    == nil then lw.useDefaults    = true end
     if lw.custom         == nil then lw.custom         = {} end
 
+    -- Comic splash config: per-splash enable, linked stat, and screen position.
+    if not HCStatsDB.comic then
+        HCStatsDB.comic = {
+            pow  = { on = true, stat = "highestCrit",   x =  150, y = 100 },
+            boom = { on = true, stat = "biggestMelee",  x = -170, y =  90 },
+            zap  = { on = true, stat = "biggestRanged", x =  160, y = -60 },
+        }
+    end
+
     if not HCStatsDB.announce then HCStatsDB.announce = {} end
     local an = HCStatsDB.announce
     if an.enabled   == nil then an.enabled   = false end
@@ -1006,70 +1015,157 @@ fa2:SetFromAlpha(0.35); fa2:SetToAlpha(0); fa2:SetDuration(0.9); fa2:SetOrder(2)
 flashAG:SetScript("OnFinished", function() flash:Hide() end)
 
 -- ---------------------------------------------------------------------------
--- Comic-book splash (POW/BOOM/ZAP) on new hit records
+-- Comic-book splashes (POW/BOOM/ZAP). Each splash can be toggled, dragged to
+-- a new position (placement mode), and linked to any record stat in settings.
 -- ---------------------------------------------------------------------------
-local comic = CreateFrame("Frame", nil, UIParent)
-comic:SetSize(150, 150)
-comic:SetFrameStrata("HIGH")
-comic:EnableMouse(false)
-comic:Hide()
-local comicTex = comic:CreateTexture(nil, "ARTWORK")
-comicTex:SetAllPoints()
 
-local comicAG = comic:CreateAnimationGroup()
-local cIn = comicAG:CreateAnimation("Alpha")
-cIn:SetFromAlpha(0); cIn:SetToAlpha(1); cIn:SetDuration(0.08); cIn:SetOrder(1)
-local cGrow = comicAG:CreateAnimation("Scale")
-if cGrow.SetScaleFrom then
-    cGrow:SetScaleFrom(0.4, 0.4); cGrow:SetScaleTo(1, 1)
-else
-    cGrow:SetFromScale(0.4, 0.4); cGrow:SetToScale(1, 1)  -- older anim API
+-- Record stats a splash can be linked to (key -> label for the dropdown).
+HC.SPLASH_TRIGGERS = {
+    { "highestCrit",   "Highest Crit" },
+    { "biggestMelee",  "Biggest Melee Hit" },
+    { "biggestRanged", "Biggest Ranged Hit" },
+    { "biggestHit",    "Biggest Hit Taken" },
+    { "closestCall",   "Closest Call (new low)" },
+    { "nearestDeath",  "Nearest Death" },
+    { "highestFall",   "Highest Fall" },
+    { "toughestFoe",   "Toughest Foe" },
+    { "mostFoes",      "Most Foes at Once" },
+    { "clutchSaves",   "Clutch Save" },
+}
+
+-- Tilt direction per splash (SetRotation: positive = counter-clockwise = top
+-- leans left). POW leans right, BOOM leans left, ZAP goes either way.
+local COMIC_TILT = {
+    pow  = { -18, -6 },
+    boom = {   6, 18 },
+    zap  = { -15, 15 },
+}
+
+local splashPlacement = false
+local comicFrames = {}
+
+local function StopSplashDrag(f)
+    if not f.moving then return end
+    f.moving = false
+    f:StopMovingOrSizing()
+    local cx, cy = f:GetCenter()
+    local ux, uy = UIParent:GetCenter()
+    local conf = DB and DB.comic and DB.comic[f.which]
+    if cx and ux and conf then
+        conf.x = math.floor(cx - ux + 0.5)
+        conf.y = math.floor(cy - uy + 0.5)
+    end
 end
-cGrow:SetOrigin("CENTER", 0, 0)
-cGrow:SetDuration(0.14); cGrow:SetOrder(1)
-local cOut = comicAG:CreateAnimation("Alpha")
-cOut:SetFromAlpha(1); cOut:SetToAlpha(0); cOut:SetDuration(0.45)
-cOut:SetStartDelay(0.9); cOut:SetOrder(2)
-comicAG:SetScript("OnFinished", function() comic:Hide() end)
 
-local lastComic = -99
+local function GetComicFrame(which)
+    local f = comicFrames[which]
+    if f then return f end
+    f = CreateFrame("Frame", nil, UIParent)
+    f.which = which
+    f:SetSize(150, 150)
+    f:SetFrameStrata("HIGH")
+    f:SetMovable(true)
+    f:SetClampedToScreen(true)
+    f:EnableMouse(false)
+    f:Hide()
+    f.tex = f:CreateTexture(nil, "ARTWORK")
+    f.tex:SetAllPoints()
+    f.tex:SetTexture("Interface\\AddOns\\HCStats\\Media\\" .. which)
+    f.lastPop = -99
 
--- Debug helper: zero just the three hit records (and the splash cooldown) so
--- the next hit sets a "new record" and pops the comic splash again.
+    f.ag = f:CreateAnimationGroup()
+    local aIn = f.ag:CreateAnimation("Alpha")
+    aIn:SetFromAlpha(0); aIn:SetToAlpha(1); aIn:SetDuration(0.08); aIn:SetOrder(1)
+    local grow = f.ag:CreateAnimation("Scale")
+    if grow.SetScaleFrom then
+        grow:SetScaleFrom(0.4, 0.4); grow:SetScaleTo(1, 1)
+    else
+        grow:SetFromScale(0.4, 0.4); grow:SetToScale(1, 1)  -- older anim API
+    end
+    grow:SetOrigin("CENTER", 0, 0)
+    grow:SetDuration(0.14); grow:SetOrder(1)
+    local aOut = f.ag:CreateAnimation("Alpha")
+    aOut:SetFromAlpha(1); aOut:SetToAlpha(0); aOut:SetDuration(0.45)
+    aOut:SetStartDelay(0.9); aOut:SetOrder(2)
+    f.ag:SetScript("OnFinished", function() if not splashPlacement then f:Hide() end end)
+
+    -- Dragging, active only while placement mode is on.
+    f:SetScript("OnMouseDown", function(self, btn)
+        if splashPlacement and btn == "LeftButton" then
+            self.moving = true
+            self:StartMoving()
+        end
+    end)
+    f:SetScript("OnMouseUp", function(self) StopSplashDrag(self) end)
+    f:SetScript("OnUpdate", function(self)
+        if self.moving and not IsMouseButtonDown("LeftButton") then StopSplashDrag(self) end
+    end)
+
+    comicFrames[which] = f
+    return f
+end
+
+function HC:ComicPop(which)
+    if not DB or DB.comicPops == false or splashPlacement then return end
+    local conf = DB.comic and DB.comic[which]
+    if not conf or conf.on == false then return end
+    local f = GetComicFrame(which)
+    local now = GetTime()
+    if now - f.lastPop < 8 then return end  -- early levels set records constantly
+    f.lastPop = now
+    local t = COMIC_TILT[which] or COMIC_TILT.pow
+    f.tex:SetRotation(math.rad(math.random(t[1], t[2])))
+    f:ClearAllPoints()
+    f:SetPoint("CENTER", UIParent, "CENTER",
+        conf.x + math.random(-30, 30), conf.y + math.random(-25, 25))
+    f:Show()
+    f.ag:Stop()
+    f.ag:Play()
+end
+
+-- Called wherever a record stat improves; pops whatever splashes are linked.
+function HC:ComicEvent(statKey)
+    if not DB or not DB.comic then return end
+    for which, conf in pairs(DB.comic) do
+        if conf.stat == statKey then HC:ComicPop(which) end
+    end
+end
+
+-- Placement mode: show all splashes statically and let the user drag them.
+function HC:ToggleSplashPlacement()
+    if not DB or not DB.comic then return end
+    splashPlacement = not splashPlacement
+    for which, conf in pairs(DB.comic) do
+        local f = GetComicFrame(which)
+        f.ag:Stop()
+        if splashPlacement then
+            f:EnableMouse(true)
+            f:SetAlpha(1)
+            f.tex:SetRotation(0)
+            f:ClearAllPoints()
+            f:SetPoint("CENTER", UIParent, "CENTER", conf.x, conf.y)
+            f:Show()
+        else
+            StopSplashDrag(f)
+            f:EnableMouse(false)
+            f:Hide()
+        end
+    end
+    print("|cffff4444HC Stats|r: " .. (splashPlacement
+        and "drag the splashes where you want them, then toggle placement again to save."
+        or "splash positions saved."))
+end
+
+-- Debug helper: zero just the three hit records (and splash cooldowns) so the
+-- next hit sets a "new record" and pops the splash again.
 function HC:ResetHitRecords()
     if not DB then return end
     DB.highestCrit, DB.highestCritSpell, DB.highestCritTarget = 0, nil, nil
     DB.biggestMelee, DB.biggestMeleeTarget = 0, nil
     DB.biggestRanged, DB.biggestRangedTarget = 0, nil
-    lastComic = -99
+    for _, f in pairs(comicFrames) do f.lastPop = -99 end
     HC:UpdateDisplay()
     print("|cffff4444HC Stats|r: hit records reset (crit / melee / ranged). Next hit pops the splash.")
-end
-
--- Each splash has its own home spot and tilt direction (plus jitter), so they
--- read like panels on a comic page: POW upper-right leaning right, BOOM
--- upper-left leaning left, ZAP lower-right tilting either way.
--- (SetRotation: positive radians = counter-clockwise = top leans left.)
-local COMIC_POS = {
-    pow  = { x =  150, y = 100, tiltMin = -18, tiltMax = -6 },
-    boom = { x = -170, y =  90, tiltMin =   6, tiltMax = 18 },
-    zap  = { x =  160, y = -60, tiltMin = -15, tiltMax = 15 },
-}
-
-function HC:ComicPop(which)
-    if DB and DB.comicPops == false then return end
-    local now = GetTime()
-    if now - lastComic < 8 then return end  -- early levels set records constantly
-    lastComic = now
-    local p = COMIC_POS[which] or COMIC_POS.pow
-    comicTex:SetTexture("Interface\\AddOns\\HCStats\\Media\\" .. which)
-    comicTex:SetRotation(math.rad(math.random(p.tiltMin, p.tiltMax)))
-    comic:ClearAllPoints()
-    comic:SetPoint("CENTER", UIParent, "CENTER",
-        p.x + math.random(-30, 30), p.y + math.random(-25, 25))
-    comic:Show()
-    comicAG:Stop()
-    comicAG:Play()
 end
 
 function HC:RandomLastWord()
@@ -1273,6 +1369,7 @@ local function OnHealth()
         DB.lowestLevel  = UnitLevel("player")
         DB.lowestZone   = GetZoneText()
         DB.lowestSource = lastHitBy or (inCombat and (UnitName("target")) or nil)
+        HC:ComicEvent("closestCall")
         HC:UpdateDisplay()
     end
 
@@ -1286,6 +1383,7 @@ local function OnHealth()
             DB.closestSecLevel  = UnitLevel("player")
             DB.closestSecZone   = GetZoneText()
             DB.closestSecSource = lastHitBy
+            HC:ComicEvent("nearestDeath")
             HC:UpdateDisplay()
         end
     end
@@ -1410,6 +1508,7 @@ local function OnCombatLog()
                 DB.highestFall      = amt
                 DB.highestFallLevel = UnitLevel("player")
                 DB.highestFallZone  = GetZoneText()
+                HC:ComicEvent("highestFall")
                 HC:UpdateDisplay()
             end
         end
@@ -1455,7 +1554,7 @@ local function OnCombatLog()
         DB.highestCritSpell  = spellName
         DB.highestCritTarget = dstName
         changed = true
-        HC:ComicPop("pow")
+        HC:ComicEvent("highestCrit")
     end
 
     -- Weapon auto-attacks: SWING = melee weapon, RANGE = ranged weapon.
@@ -1463,11 +1562,11 @@ local function OnCombatLog()
         if sub == "SWING_DAMAGE" and amount > DB.biggestMelee then
             DB.biggestMelee, DB.biggestMeleeTarget = amount, dstName
             changed = true
-            HC:ComicPop("boom")
+            HC:ComicEvent("biggestMelee")
         elseif sub == "RANGE_DAMAGE" and amount > DB.biggestRanged then
             DB.biggestRanged, DB.biggestRangedTarget = amount, dstName
             changed = true
-            HC:ComicPop("zap")
+            HC:ComicEvent("biggestRanged")
         end
     end
 
@@ -1500,7 +1599,10 @@ local function OnCombatLog()
         if srcGUID and not fightAttackers[srcGUID] then
             fightAttackers[srcGUID] = true
             fightFoeCount = fightFoeCount + 1
-            if fightFoeCount > DB.mostFoes then DB.mostFoes = fightFoeCount end
+            if fightFoeCount > DB.mostFoes then
+                DB.mostFoes = fightFoeCount
+                HC:ComicEvent("mostFoes")
+            end
         end
         if inCombat and untouchedStart then  -- a hit ends the current no-hit streak
             local stretch = GetTime() - untouchedStart
@@ -1515,6 +1617,7 @@ local function OnCombatLog()
             DB.biggestHitLevel  = UnitLevel("player")
             DB.biggestHitZone   = GetZoneText()
             changed = true
+            HC:ComicEvent("biggestHit")
         end
     end
 
@@ -1525,7 +1628,10 @@ local function OnCombatLog()
     elseif dstGUID == playerGUID then
         enemyGUID, enemyName = srcGUID, srcName
     end
-    if SampleTargetLevel(enemyGUID, enemyName) then changed = true end
+    if SampleTargetLevel(enemyGUID, enemyName) then
+        changed = true
+        HC:ComicEvent("toughestFoe")
+    end
 
     if changed then HC:UpdateDisplay() end
 end
@@ -1564,6 +1670,7 @@ local function OnCombatEnd()
         -- Clutch save: dropped low but lived through the fight.
         if fightWentLow and (UnitHealth("player") or 0) > 0 then
             DB.clutchSaves = DB.clutchSaves + 1
+            HC:ComicEvent("clutchSaves")
         end
         if (UnitHealth("player") or 0) > 0 then HC:CheckAnnounce() end  -- only if you lived
     end
@@ -1590,6 +1697,7 @@ StaticPopupDialogs["HCSTATS_RESET"] = {
             fullPoint = DB.fullPoint, fontSize = DB.fontSize, scale = DB.scale,
             lastWords = DB.lastWords, showVersion = DB.showVersion, mobTooltip = DB.mobTooltip,
             announce = DB.announce, welcomed = DB.welcomed, comicPops = DB.comicPops,
+            comic = DB.comic,
             playedTotal = DB.playedTotal, playedLevel = DB.playedLevel,
         }
         wipe(DB)
@@ -1615,6 +1723,8 @@ SlashCmdList.HCSTATS = function(msg)
         if HC.OpenOptions then HC:OpenOptions() end
     elseif msg == "full" or msg == "all" then
         HC:ToggleFull()
+    elseif msg == "splashes" or msg == "splash" then
+        HC:ToggleSplashPlacement()
     elseif msg == "reset" then
         StaticPopup_Show("HCSTATS_RESET")
     elseif msg:match("^makgora") or msg:match("^mak'gora") then

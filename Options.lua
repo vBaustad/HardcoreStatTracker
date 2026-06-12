@@ -204,6 +204,101 @@ function HC:BuildOptions()
 
     HC:BuildLastWordsOptions()
     HC:BuildAnnounceOptions()
+    HC:BuildSplashOptions()
+end
+
+-- ---------------------------------------------------------------------------
+-- "Splashes" subpanel: per-splash enable, trigger stat, and drag positioning
+-- ---------------------------------------------------------------------------
+function HC:BuildSplashOptions()
+    if HC.splashPanel then return end
+    local panel = CreateFrame("Frame")
+    panel.name = "Splashes"
+    HC.splashPanel = panel
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("Comic Splashes")
+
+    local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    sub:SetWidth(560); sub:SetJustifyH("LEFT")
+    sub:SetText("Each splash can be turned off, linked to a different record stat, and dragged to "
+        .. "a new spot on screen. The master toggle lives on the main HC Stats page.")
+
+    local SPLASH_LABEL = { pow = "POW!", boom = "BOOM!", zap = "ZAP!" }
+    local order = { "pow", "boom", "zap" }
+    local cbs, dds = {}, {}
+
+    local function labelFor(statKey)
+        for _, opt in ipairs(HC.SPLASH_TRIGGERS) do
+            if opt[1] == statKey then return opt[2] end
+        end
+        return statKey or "?"
+    end
+
+    for i, which in ipairs(order) do
+        local y = -70 - (i - 1) * 46
+
+        local name = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+        name:SetPoint("TOPLEFT", 16, y - 8)
+        name:SetText(SPLASH_LABEL[which])
+
+        cbs[which] = MakeCheck(panel, "splash_" .. which, "Show", 96, y - 2,
+            function() return HC.db and HC.db.comic[which].on end,
+            function(v) HC.db.comic[which].on = v end,
+            "Enable or disable this splash.")
+
+        local dd = CreateFrame("Frame", "HCStatsSplashDD_" .. which, panel, "UIDropDownMenuTemplate")
+        dd:SetPoint("TOPLEFT", 170, y)
+        UIDropDownMenu_SetWidth(dd, 180)
+        UIDropDownMenu_Initialize(dd, function(_, level)
+            for _, opt in ipairs(HC.SPLASH_TRIGGERS) do
+                local info = UIDropDownMenu_CreateInfo()
+                info.text = opt[2]
+                info.value = opt[1]
+                info.func = function(btn)
+                    HC.db.comic[which].stat = btn.value
+                    UIDropDownMenu_SetSelectedValue(dd, btn.value)
+                    UIDropDownMenu_SetText(dd, opt[2])
+                end
+                info.checked = (HC.db.comic[which].stat == opt[1])
+                UIDropDownMenu_AddButton(info, level)
+            end
+        end)
+        dds[which] = dd
+    end
+
+    local posBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    posBtn:SetSize(170, 22)
+    posBtn:SetPoint("TOPLEFT", 16, -224)
+    posBtn:SetText("Position splashes")
+    posBtn:SetScript("OnClick", function() HC:ToggleSplashPlacement() end)
+
+    local posNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    posNote:SetPoint("LEFT", posBtn, "RIGHT", 10, 0)
+    posNote:SetText("Shows all three on screen - drag them, then click again to save. (/hcstats splashes)")
+
+    local function Refresh()
+        if not (HC.db and HC.db.comic) then return end
+        for which, cb in pairs(cbs) do
+            cb:SetChecked(HC.db.comic[which].on and true or false)
+        end
+        for which, dd in pairs(dds) do
+            local statKey = HC.db.comic[which].stat
+            UIDropDownMenu_SetSelectedValue(dd, statKey)
+            UIDropDownMenu_SetText(dd, labelFor(statKey))
+        end
+    end
+    panel:SetScript("OnShow", Refresh)
+    Refresh()
+
+    if Settings and Settings.RegisterCanvasLayoutSubcategory and HC.category then
+        Settings.RegisterCanvasLayoutSubcategory(HC.category, panel, "Splashes")
+    elseif InterfaceOptions_AddCategory then
+        panel.parent = "HC Stats"
+        InterfaceOptions_AddCategory(panel)
+    end
 end
 
 -- ---------------------------------------------------------------------------
