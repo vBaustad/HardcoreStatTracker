@@ -195,6 +195,7 @@ local LAYOUT_DEFAULTS = {
     scale      = 1,
     mobTooltip = true,   -- show "has hit you for X" on mob tooltips
     comicPops  = true,   -- POW/BOOM/ZAP splash on new hit records
+    fullAlpha  = 0.97,   -- full-window background opacity
     point      = { "CENTER", "CENTER", 250, 0 },
 }
 
@@ -784,6 +785,20 @@ cfgBtn:SetScript("OnClick", function()
     if HC.OpenOptions then HC:OpenOptions() end
 end)
 
+-- Background-opacity slider, in the footer next to Settings.
+local alphaSlider = CreateFrame("Slider", "HCStatsFullAlpha", full, "OptionsSliderTemplate")
+alphaSlider:SetSize(140, 16)
+alphaSlider:SetMinMaxValues(0.2, 1)
+alphaSlider:SetValueStep(0.05)
+alphaSlider:SetObeyStepOnDrag(true)
+_G["HCStatsFullAlphaLow"]:SetText("")
+_G["HCStatsFullAlphaHigh"]:SetText("")
+_G["HCStatsFullAlphaText"]:SetText("|cff888888Background|r")
+alphaSlider:SetScript("OnValueChanged", function(_, v)
+    if DB then DB.fullAlpha = v end
+    full:SetBackdropColor(0.05, 0.04, 0.04, v)
+end)
+
 local divider = full:CreateTexture(nil, "ARTWORK")
 divider:SetColorTexture(0.6, 0.1, 0.1, 0.8)
 divider:SetPoint("TOPLEFT", PAD, -46)
@@ -823,11 +838,11 @@ local function CreateRow()
     r.icon:SetPoint("TOPLEFT", 2, -3)
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.left = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    r.left:SetFont(STDFONT, 13, "")
+    r.left:SetFont(STDFONT, 12, "")    -- quiet labels...
     r.left:SetJustifyH("LEFT")
     r.right = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    r.right:SetFont(STDFONT, 15, "")   -- the values are the point - let them lead
-    r.right:SetPoint("TOPRIGHT", -4, -4)
+    r.right:SetFont(STDFONT, 17, "")   -- ...loud numbers
+    r.right:SetPoint("TOPRIGHT", -4, -3)
     r.right:SetJustifyH("RIGHT")
     r.sub = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     r.sub:SetJustifyH("LEFT")
@@ -981,9 +996,11 @@ function HC:RefreshFull()
     for j = idx + 1, #fullRows do fullRows[j]:Hide() end
 
     local footerY = y - 6
+    alphaSlider:ClearAllPoints()
+    alphaSlider:SetPoint("TOPLEFT", PAD + 8, footerY - 14)   -- label sits above the track
     cfgBtn:ClearAllPoints()
-    cfgBtn:SetPoint("TOP", full, "TOP", 0, footerY)
-    full:SetHeight(-footerY + 20 + 10)
+    cfgBtn:SetPoint("TOPRIGHT", -PAD - 6, footerY - 10)
+    full:SetHeight(-footerY + 42)
 end
 
 function HC:ToggleFull()
@@ -991,6 +1008,9 @@ function HC:ToggleFull()
     local p = DB and DB.fullPoint
     full:ClearAllPoints()
     if p then full:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else full:SetPoint("CENTER") end
+    local a = (DB and DB.fullAlpha) or 0.97
+    full:SetBackdropColor(0.05, 0.04, 0.04, a)
+    alphaSlider:SetValue(a)
     full:Show()
     HC:RefreshFull()
 end
@@ -1828,7 +1848,7 @@ StaticPopupDialogs["HCSTATS_RESET"] = {
             fullPoint = DB.fullPoint, fontSize = DB.fontSize, scale = DB.scale,
             lastWords = DB.lastWords, showVersion = DB.showVersion, mobTooltip = DB.mobTooltip,
             announce = DB.announce, welcomed = DB.welcomed, comicPops = DB.comicPops,
-            comic = DB.comic,
+            comic = DB.comic, fullAlpha = DB.fullAlpha,
             playedTotal = DB.playedTotal, playedLevel = DB.playedLevel,
         }
         wipe(DB)
