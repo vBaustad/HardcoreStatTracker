@@ -183,6 +183,7 @@ local RECORD_DEFAULTS = {
     dmgTaken       = 0,
     quests         = 0,
     zones          = 0,
+    buffsGiven     = 0,
     biggestLevelDiff = nil, biggestLevelDiffMob = nil,
     biggestLevelDiffMyLevel = nil, biggestLevelDiffZone = nil,
 }
@@ -212,7 +213,6 @@ local function ApplyDefaults()
     if not HCStatsDB.petDeathLog then HCStatsDB.petDeathLog = {} end
     if not HCStatsDB.partyDeathLog then HCStatsDB.partyDeathLog = {} end
     if not HCStatsDB.zonesVisited then HCStatsDB.zonesVisited = {} end
-    if not HCStatsDB.mobDamage then HCStatsDB.mobDamage = {} end
 
     -- One-time smart defaults for the mini view: keep it to a tight core, and
     -- only show pet stats for pet classes. Existing user toggles are preserved.
@@ -232,6 +232,10 @@ local function ApplyDefaults()
             if HCStatsDB.show.petDeaths == nil then HCStatsDB.show.petDeaths = false end
         end
         HCStatsDB.showVersion = 1
+    end
+    if (HCStatsDB.showVersion or 0) < 2 then
+        if HCStatsDB.show.buffsGiven == nil then HCStatsDB.show.buffsGiven = false end
+        HCStatsDB.showVersion = 2
     end
 
     if not HCStatsDB.lastWords then HCStatsDB.lastWords = {} end
@@ -261,7 +265,34 @@ local function ApplyDefaults()
     if HCStatsAccountDB.makgoraWon  == nil then HCStatsAccountDB.makgoraWon  = 0 end
     if HCStatsAccountDB.makgoraLost == nil then HCStatsAccountDB.makgoraLost = 0 end
     if HCStatsAccountDB.makgoraDebug == nil then HCStatsAccountDB.makgoraDebug = false end
+    if HCStatsAccountDB.mobDamage == nil then HCStatsAccountDB.mobDamage = {} end
     HC.adb = HCStatsAccountDB
+
+    -- One-time migration: mob damage history used to be per-character.
+    if HCStatsDB.mobDamage then
+        for name, rec in pairs(HCStatsDB.mobDamage) do
+            local cur = HCStatsAccountDB.mobDamage[name]
+            if not cur or (rec.hit or 0) > (cur.hit or 0) then
+                HCStatsAccountDB.mobDamage[name] = rec
+            end
+        end
+        HCStatsDB.mobDamage = nil
+    end
+
+    -- Keep the account-wide mob table bounded: prune least-recently-seen.
+    local MOB_CAP, MOB_TRIM = 400, 300
+    local n = 0
+    for _ in pairs(HCStatsAccountDB.mobDamage) do n = n + 1 end
+    if n > MOB_CAP then
+        local byAge = {}
+        for name, rec in pairs(HCStatsAccountDB.mobDamage) do
+            byAge[#byAge + 1] = { name = name, seen = rec.seen or 0 }
+        end
+        table.sort(byAge, function(a, b) return a.seen < b.seen end)
+        for i = 1, n - MOB_TRIM do
+            HCStatsAccountDB.mobDamage[byAge[i].name] = nil
+        end
+    end
 
     DB = HCStatsDB
     HC.db = HCStatsDB    -- exposed for Options.lua
@@ -417,6 +448,7 @@ HC.STATS = {
     { "zones",        "Zones Explored", function() return Comma(DB.zones) end },
     { "makgoraWon",   "Mak'gora Won",   function() return Comma(HC.adb and HC.adb.makgoraWon) end },
     { "makgoraLost",  "Mak'gora Lost",  function() return Comma(HC.adb and HC.adb.makgoraLost) end },
+    { "buffsGiven",   "Buffs Given",    function() return Comma(DB.buffsGiven) end },
 }
 
 -- Icon per stat, shared by the mini view and the full window.
@@ -447,6 +479,37 @@ HC.ICONS = {
     zones        = ICONP .. "INV_Misc_Map_01",
     makgoraWon   = ICONP .. "INV_Sword_27",
     makgoraLost  = ICONP .. "Ability_Rogue_FeignDeath",
+    buffsGiven   = ICONP .. "Spell_Holy_WordFortitude",
+}
+
+-- What each stat means and how it's tracked (full-window hover tooltips).
+HC.STAT_HELP = {
+    timeAlive    = "Your total /played time on this character - for a hardcore character, that IS your time alive. Server-authoritative, ticks live. The sub-line shows time at your current level.",
+    closestCall  = "The lowest health you've ever reached while alive, as a percentage and raw HP. Captured the moment it happens, along with your level, the zone, and what last hit you.",
+    nearestDeath = "How close you came to dying, in seconds: your HP at that moment divided by the damage-per-second you were taking (3-second window). Lower is scarier.",
+    biggestHit   = "The largest single hit you've survived, with the attacker and ability that dealt it.",
+    highestCrit  = "Your biggest critical hit, and what it landed on.",
+    biggestMelee = "Your biggest melee auto-attack hit. White swings only - abilities don't count.",
+    biggestRanged = "Your biggest ranged auto-attack hit (bow, gun, or wand). Stays at 0 if you never fire one.",
+    highestFall  = "The most fall damage you've survived in one landing.",
+    longestFight = "Your longest single stretch of combat.",
+    mostDmgFight = "The most total damage you've taken within one fight.",
+    toughestFoe  = "The biggest level gap above you on an enemy you actually traded blows with (it must be your target while fighting). Skull-level mobs can't be measured.",
+    killingBlows = "Kills where your hit was the killing blow - assists don't count.",
+    panic        = "Times your health dropped to 20% or below. Counts once per dip and re-arms when you recover above 20%.",
+    clutchSaves  = "Fights where you dropped to 10% or below and still won. The earned version of a panic moment.",
+    untouched    = "Your longest stretch inside a single fight without taking any damage at all.",
+    mostFoes     = "The most separate enemies that damaged you within a single fight.",
+    fights       = "Combat sessions you've entered and walked out of alive.",
+    dmgTaken     = "Every point of damage this character has ever taken, lifetime - combat, falls, everything.",
+    currentPet   = "Your currently active pet.",
+    petDeaths    = "Pets that died on your watch. The most recent are listed with your level and the zone.",
+    partyDeaths  = "Party or raid members who died near you - witnessed through your combat log, so they must be in range.",
+    buffsGiven   = "Buffs you've put on other players (Fortitude, Blessings, a Battle Shout washing over the party...). One count per application per target.",
+    quests       = "Quests turned in on this character.",
+    zones        = "Distinct zones you've set foot in.",
+    makgoraWon   = "Mak'gora duels won - ACCOUNT-WIDE, persists across all your characters. Auto-detected from system messages; record manually with /hcstats makgora won.",
+    makgoraLost  = "Mak'gora duels lost - ACCOUNT-WIDE, your fallen characters' final duels. Record manually with /hcstats makgora lost.",
 }
 
 function HC:UpdateDisplay()
@@ -459,7 +522,10 @@ function HC:UpdateDisplay()
     local PADX   = 10
     local LX     = iconSz + 6           -- label x offset (after icon)
 
-    miniTitle:SetFont(STDFONT, fs + 3, "")
+    if frame._fs ~= fs then
+        frame._fs = fs
+        miniTitle:SetFont(STDFONT, fs + 3, "")
+    end
     local titleH = fs + 9
     miniDivider:ClearAllPoints()
     miniDivider:SetPoint("TOPLEFT", PADX, -titleH)
@@ -479,7 +545,10 @@ function HC:UpdateDisplay()
         else
             r.icon:Hide()
         end
-        r.left:SetFont(STDFONT, fs, ""); r.right:SetFont(STDFONT, fs, "")
+        if r._fs ~= fs then
+            r._fs = fs
+            r.left:SetFont(STDFONT, fs, ""); r.right:SetFont(STDFONT, fs, "")
+        end
         r.left:ClearAllPoints()
         r.left:SetPoint("LEFT", icon and LX or 0, 0)
         r.left:SetText(label)
@@ -600,6 +669,7 @@ function HC:StatData()
     d.zones       = { label = "Zones Explored", value = Comma(DB.zones) }
     d.makgoraWon  = { label = "Mak'gora Won", value = Comma(HC.adb and HC.adb.makgoraWon) }
     d.makgoraLost = { label = "Mak'gora Lost", value = Comma(HC.adb and HC.adb.makgoraLost) }
+    d.buffsGiven  = { label = "Buffs Given", value = Comma(DB.buffsGiven) }
     return d
 end
 
@@ -621,6 +691,7 @@ full:SetBackdrop({
 full:SetBackdropColor(0, 0, 0, 0.92)
 full:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
 full:Hide()
+tinsert(UISpecialFrames, "HCStatsFullFrame")  -- Escape closes the window
 HC.fullFrame = full
 
 local function SaveFullPos()
@@ -665,6 +736,7 @@ local FULL_LAYOUT = {
     { key = "petDeaths",    icon = ICON .. "Spell_Nature_Reincarnation" },
     { header = "Group" },
     { key = "partyDeaths",  icon = ICON .. "INV_Misc_Bone_HumanSkull_02" },
+    { key = "buffsGiven",   icon = ICON .. "Spell_Holy_WordFortitude" },
     { header = "Adventure" },
     { key = "quests",       icon = ICON .. "INV_Scroll_08" },
     { key = "zones",        icon = ICON .. "INV_Misc_Map_01" },
@@ -714,8 +786,20 @@ local function CreateRow()
     r.hl:SetColorTexture(1, 1, 1, 0.10)
     r.hl:Hide()
     r:EnableMouse(true)
-    r:SetScript("OnEnter", function(self) self.hl:Show() end)
-    r:SetScript("OnLeave", function(self) self.hl:Hide() end)
+    r:SetScript("OnEnter", function(self)
+        self.hl:Show()
+        local help = self._key and HC.STAT_HELP[self._key]
+        if help then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(self._label or "", 1, 0.82, 0)
+            GameTooltip:AddLine(help, 1, 1, 1, true)  -- true = word wrap
+            GameTooltip:Show()
+        end
+    end)
+    r:SetScript("OnLeave", function(self)
+        self.hl:Hide()
+        GameTooltip:Hide()
+    end)
     r:SetScript("OnMouseDown", function(_, btn) if btn == "LeftButton" then StartFullDrag() end end)
     r:SetScript("OnMouseUp", function() StopFullDrag() end)
     r.icon = r:CreateTexture(nil, "ARTWORK")
@@ -745,6 +829,7 @@ end
 local function GetRow(i) fullRows[i] = fullRows[i] or CreateRow(); return fullRows[i] end
 
 local function StyleHeader(r, name, yy, w)
+    r._key, r._label = nil, nil
     r:ClearAllPoints()
     r:SetPoint("TOPLEFT", PAD, yy)
     r:SetWidth(w)
@@ -762,6 +847,7 @@ local function StyleStat(r, item, x, yy, w, d, shade)
     r:SetPoint("TOPLEFT", x, yy)
     r:SetWidth(w)
     local sd = d[item.key] or { label = item.key, value = "--", dim = true }
+    r._key, r._label = item.key, sd.label
     r.bg:SetColorTexture(1, 1, 1, shade and 0.05 or 0.015)
     r.icon:Show(); r.icon:SetTexture(item.icon)
     r.left:ClearAllPoints(); r.left:SetPoint("TOPLEFT", r.icon, "TOPRIGHT", 6, -1)
@@ -940,7 +1026,10 @@ function HC:RandomLastWord()
 end
 
 function HC:DangerAlert()
-    PlaySound(8959, "Master")  -- RAID_WARNING sound, forced audible
+    -- Custom low-health warning clip; falls back to the raid-warning sound.
+    if not PlaySoundFile("Interface\\AddOns\\HCStats\\Sounds\\Frank.ogg", "Master") then
+        PlaySound(8959, "Master")
+    end
     if RaidNotice_AddMessage and RaidWarningFrame and ChatTypeInfo then
         RaidNotice_AddMessage(RaidWarningFrame, "|cffff2020LOW HEALTH!|r", ChatTypeInfo["RAID_WARNING"])
     end
@@ -951,14 +1040,19 @@ end
 -- /say and /yell require a *hardware event*, so an auto-trigger can't send them
 -- directly. We queue the line and flush it on the player's next keypress (which
 -- is a hardware event). Group channels have no such restriction.
-local pendingChat = nil
+local pendingChat = {}  -- FIFO: several messages can queue before a keypress
+local CHAT_TTL = 6      -- seconds before a queued line goes stale and is dropped
 local catcher = CreateFrame("Frame", nil, UIParent)
 catcher:Hide()
 catcher:SetPropagateKeyboardInput(true)  -- let keys still reach the game
 local function FlushPending()
-    if pendingChat then
-        SendChatMessage(pendingChat[1], pendingChat[2])
-        pendingChat = nil
+    local now = GetTime()
+    for i = 1, #pendingChat do
+        local m = pendingChat[i]
+        if now - m.t <= CHAT_TTL then
+            SendChatMessage(m.msg, m.chan)   -- we're inside a hardware event here
+        end
+        pendingChat[i] = nil
     end
     catcher:EnableKeyboard(false)
     catcher:Hide()
@@ -970,12 +1064,15 @@ local function SayMessage(msg, channel, fromHardware)
     if fromHardware or not public then
         SendChatMessage(msg, channel)        -- already in a hardware event, or group channel
     else
-        pendingChat = { msg, channel }       -- fire on next keypress
+        pendingChat[#pendingChat + 1] = { msg = msg, chan = channel, t = GetTime() }
         catcher:EnableKeyboard(true)
         catcher:Show()
-        C_Timer.After(5, function()          -- give up (discard) if no keypress comes
-            if pendingChat then
-                pendingChat = nil
+        C_Timer.After(CHAT_TTL + 1, function()   -- janitor: drop stale, release keyboard
+            local now = GetTime()
+            for i = #pendingChat, 1, -1 do
+                if now - pendingChat[i].t > CHAT_TTL then table.remove(pendingChat, i) end
+            end
+            if #pendingChat == 0 then
                 catcher:EnableKeyboard(false)
                 catcher:Hide()
             end
@@ -1055,12 +1152,29 @@ function HC:Announce(msgs)
     end
 end
 
--- Compare end-of-fight records to the combat-start snapshot; announce new bests.
+-- Compare end-of-fight records to the combat-start snapshot. New bests are
+-- queued and sent a few seconds AFTER combat ends - if you chain-pull into
+-- another fight, the brag waits until you're genuinely out of combat.
+local ANNOUNCE_DELAY = 4
+local pendingAnnounce = {}
+
+function HC:FlushAnnounce()
+    if #pendingAnnounce == 0 then return end
+    if InCombatLockdown() then return end       -- next combat end reschedules us
+    if UnitIsDeadOrGhost("player") then          -- no bragging from the grave
+        wipe(pendingAnnounce)
+        return
+    end
+    HC:Announce(pendingAnnounce)
+    wipe(pendingAnnounce)
+end
+
 function HC:CheckAnnounce()
     local an = DB.announce
     if not (an and an.enabled) or IsInRaid() or not combatSnapshot then return end
-    local msgs = {}
+    local cap = an.max or 2
     for _, key in ipairs(HC.ANNOUNCE_ORDER) do
+        if #pendingAnnounce >= cap then break end
         if an.stats[key] then
             local def = HC.ANNOUNCE[key]
             local cur, old = DB[def.field], combatSnapshot[def.field]
@@ -1072,12 +1186,10 @@ function HC:CheckAnnounce()
             end
             if key == "toughestFoe" and (DB.biggestLevelDiff or 0) <= 0 then improved = false end
             if improved then
-                msgs[#msgs + 1] = def.msg()
-                if #msgs >= (an.max or 2) then break end
+                pendingAnnounce[#pendingAnnounce + 1] = def.msg()
             end
         end
     end
-    if #msgs > 0 then HC:Announce(msgs) end
 end
 
 local function OnHealth()
@@ -1175,14 +1287,20 @@ local function SampleTargetLevel(enemyGUID, enemyName)
     return false
 end
 
+-- Append to a death log, keeping it bounded (only the recent tail is shown).
+local LOG_CAP = 25
+local function PushLog(log, entry)
+    log[#log + 1] = entry
+    while #log > LOG_CAP do table.remove(log, 1) end
+end
+
 local function OnCombatLog()
-    local e = { CombatLogGetCurrentEventInfo() }
-    local sub      = e[2]
-    local srcGUID  = e[4]
-    local srcName  = e[5]
-    local srcFlags = e[6]
-    local dstGUID  = e[8]
-    local dstName  = e[9]
+    if not DB then return end  -- events can fire before PLAYER_LOGIN initializes us
+
+    -- Capture the header as plain locals: CLEU fires for everything in combat-log
+    -- range, so this hot path must not allocate (no table per event).
+    local _, sub, _, srcGUID, srcName, srcFlags, _, dstGUID, dstName, dstFlags =
+        CombatLogGetCurrentEventInfo()
 
     if sub == "PARTY_KILL" then
         if srcGUID == playerGUID then
@@ -1195,7 +1313,7 @@ local function OnCombatLog()
     if sub == "UNIT_DIED" then
         if petGUID and dstGUID == petGUID then
             DB.petDeaths = DB.petDeaths + 1
-            table.insert(DB.petDeathLog, {
+            PushLog(DB.petDeathLog, {
                 name = petName or dstName or "Pet",
                 level = UnitLevel("player"), zone = GetZoneText(),
             })
@@ -1203,7 +1321,7 @@ local function OnCombatLog()
             HC:UpdateDisplay()
         elseif partyGUIDs[dstGUID] then
             DB.partyDeaths = (DB.partyDeaths or 0) + 1
-            table.insert(DB.partyDeathLog, {
+            PushLog(DB.partyDeathLog, {
                 name = partyGUIDs[dstGUID] or dstName or "?",
                 level = UnitLevel("player"), zone = GetZoneText(),
             })
@@ -1214,8 +1332,9 @@ local function OnCombatLog()
     end
 
     if sub == "ENVIRONMENTAL_DAMAGE" then
-        local envType, amt = e[12], e[13]              -- environmentalType(12), amount(13)
-        if dstGUID == playerGUID and amt and amt > 0 then
+        if dstGUID ~= playerGUID then return end
+        local envType, amt = select(12, CombatLogGetCurrentEventInfo())  -- envType(12), amount(13)
+        if amt and amt > 0 then
             PushIncoming(amt)
             DB.dmgTaken = (DB.dmgTaken or 0) + amt
             lastHitBy = envType
@@ -1229,12 +1348,33 @@ local function OnCombatLog()
         return
     end
 
+    -- Only events involving the player matter past this point.
+    if srcGUID ~= playerGUID and dstGUID ~= playerGUID then return end
+
+    -- Buffs you put on OTHER players (Fortitude, Battle Shout hitting the
+    -- party, etc.). One count per application per target.
+    if sub == "SPELL_AURA_APPLIED" then
+        if srcGUID == playerGUID and dstGUID ~= playerGUID and dstFlags
+                and bit.band(dstFlags, COMBATLOG_OBJECT_TYPE_PLAYER or 0x400) > 0 then
+            local _, _, _, auraType = select(12, CombatLogGetCurrentEventInfo())  -- auraType(15)
+            if auraType == "BUFF" then
+                DB.buffsGiven = (DB.buffsGiven or 0) + 1
+                HC:UpdateDisplay()
+            end
+        end
+        return
+    end
+
     -- Field offsets differ between swing and spell/range damage events.
     local amount, critical, spellName
     if sub == "SWING_DAMAGE" then
-        amount, critical, spellName = e[12], e[18], "Melee"           -- amount(12), critical(18)
+        -- amount(12) ... critical(18)
+        local a, _, _, _, _, _, crit = select(12, CombatLogGetCurrentEventInfo())
+        amount, critical, spellName = a, crit, "Melee"
     elseif sub == "SPELL_DAMAGE" or sub == "RANGE_DAMAGE" or sub == "SPELL_PERIODIC_DAMAGE" then
-        amount, critical, spellName = e[15], e[21], e[13]             -- spellName(13), amount(15), critical(21)
+        -- spellName(13), amount(15) ... critical(21)
+        local sName, _, a, _, _, _, _, _, crit = select(13, CombatLogGetCurrentEventInfo())
+        amount, critical, spellName = a, crit, sName
     else
         return
     end
@@ -1266,14 +1406,24 @@ local function OnCombatLog()
         PushIncoming(amount)
         DB.dmgTaken = (DB.dmgTaken or 0) + amount
 
-        -- Per-mob damage history (NPC sources only), keyed by name.
-        if srcName and srcFlags
+        -- Per-mob damage history (NPC sources only), keyed by name. Account-wide,
+        -- so a new character inherits the "this thing hurt me before" warnings.
+        if srcName and srcFlags and HC.adb
                 and bit.band(srcFlags, COMBATLOG_OBJECT_TYPE_NPC or 0x800) > 0 then
-            local rec = DB.mobDamage[srcName]
-            if not rec then rec = { hit = 0, crit = 0, count = 0 }; DB.mobDamage[srcName] = rec end
+            local rec = HC.adb.mobDamage[srcName]
+            if not rec then rec = { hit = 0, crit = 0, count = 0 }; HC.adb.mobDamage[srcName] = rec end
             rec.count = rec.count + 1
-            if amount > rec.hit then rec.hit = amount end
+            rec.seen  = time()
+            if amount > rec.hit then
+                rec.hit = amount
+                rec.atLevel = UnitLevel("player")  -- context: what level took this hit
+            end
             if critical and amount > rec.crit then rec.crit = amount end
+            -- Note the mob's level when it happens to be our target.
+            if UnitExists("target") and UnitGUID("target") == srcGUID then
+                local l = UnitLevel("target")
+                if l and l > 0 then rec.lvl = l end
+            end
         end
 
         if srcGUID and not fightAttackers[srcGUID] then
@@ -1349,6 +1499,11 @@ local function OnCombatEnd()
     untouchedStart = nil
     fightWentLow   = false
     inCombat = false
+    -- Queued brags (this fight's, or held over from a chain-pull) go out after
+    -- a short breather - and only if we're still out of combat by then.
+    if #pendingAnnounce > 0 then
+        C_Timer.After(ANNOUNCE_DELAY, function() HC:FlushAnnounce() end)
+    end
     HC:UpdateDisplay()
 end
 
@@ -1363,7 +1518,7 @@ StaticPopupDialogs["HCSTATS_RESET"] = {
             shown = DB.shown, locked = DB.locked, point = DB.point, show = DB.show,
             fullPoint = DB.fullPoint, fontSize = DB.fontSize, scale = DB.scale,
             lastWords = DB.lastWords, showVersion = DB.showVersion, mobTooltip = DB.mobTooltip,
-            announce = DB.announce,
+            announce = DB.announce, welcomed = DB.welcomed,
             playedTotal = DB.playedTotal, playedLevel = DB.playedLevel,
         }
         wipe(DB)
@@ -1429,13 +1584,17 @@ end
 -- Mob tooltip: "this thing has hurt you before"
 -- ---------------------------------------------------------------------------
 local function AddMobInfo(tooltip)
-    if not DB or not DB.mobTooltip then return end
+    if not DB or not DB.mobTooltip or not HC.adb then return end
     local _, unit = tooltip:GetUnit()
     if not unit or UnitIsPlayer(unit) or not UnitCanAttack("player", unit) then return end
-    local rec = DB.mobDamage[UnitName(unit)]
+    local rec = HC.adb.mobDamage[UnitName(unit)]
     if not rec or rec.hit <= 0 then return end
+    -- Opportunistically note the mob's level while we're looking right at it.
+    local l = UnitLevel(unit)
+    if l and l > 0 then rec.lvl = l end
+    local ctx = rec.atLevel and ("  |cff888888(at lvl " .. rec.atLevel .. ")|r") or ""
     tooltip:AddLine(" ")
-    tooltip:AddDoubleLine("|cffff5555Has hit you for up to|r", "|cffffd100" .. Comma(rec.hit) .. "|r")
+    tooltip:AddDoubleLine("|cffff5555Has hit you for up to|r", "|cffffd100" .. Comma(rec.hit) .. "|r" .. ctx)
     if rec.crit > 0 then
         tooltip:AddDoubleLine("|cffff5555Worst crit|r", "|cffffd100" .. Comma(rec.crit) .. "|r")
     end
@@ -1473,6 +1632,9 @@ frame:RegisterEvent("CHAT_MSG_SYSTEM")
 frame:RegisterUnitEvent("UNIT_HEALTH", "player")
 
 frame:SetScript("OnEvent", function(_, event, arg1, arg2)
+    -- Some events (UNIT_HEALTH especially) can fire during the loading screen,
+    -- before PLAYER_LOGIN has initialized the saved variables.
+    if not DB and event ~= "PLAYER_LOGIN" then return end
     if event == "PLAYER_LOGIN" then
         ApplyDefaults()
         playerGUID = UnitGUID("player")
@@ -1482,6 +1644,17 @@ frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC:UpdateDisplay()
         RequestPlayed()
         print("|cffff4444HC Stats|r loaded. /hcstats to toggle, config, or hover for details.")
+        if not DB.welcomed then
+            DB.welcomed = true
+            -- a few seconds late so it lands after the login chat spam
+            C_Timer.After(5, function()
+                print("|cffff4444HC Stats|r: welcome! The panel starts small, but there's a lot more to track -"
+                    .. " pet & party deaths, Mak'gora, mob damage warnings, record announcements,"
+                    .. " famous last words, and more.")
+                print("|cffff4444HC Stats|r: type |cffffd100/hcstats config|r to pick your stats,"
+                    .. " or click |cffffd100[+]|r on the panel to see everything at once.")
+            end)
+        end
     elseif event == "TIME_PLAYED_MSG" then
         -- arg1 = total played seconds, arg2 = played at current level
         playedBase      = arg1
