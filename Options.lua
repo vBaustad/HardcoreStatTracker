@@ -161,6 +161,19 @@ function HC:BuildOptions()
     resetNote:SetPoint("LEFT", resetBtn, "RIGHT", 10, 0)
     resetNote:SetText("Clears every record for this character (keeps Time Alive). Asks first.")
 
+    -- Debug: zero only the three hit records so the comic splash can re-trigger.
+    local hitResetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    hitResetBtn:SetSize(180, 20)
+    hitResetBtn:SetPoint("TOPLEFT", resetBtn, "BOTTOMLEFT", 0, -8)
+    hitResetBtn:SetText("Reset hit records (debug)")
+    hitResetBtn:SetScript("OnClick", function()
+        if HC.ResetHitRecords then HC:ResetHitRecords() end
+    end)
+
+    local hitResetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    hitResetNote:SetPoint("LEFT", hitResetBtn, "RIGHT", 10, 0)
+    hitResetNote:SetText("Zeroes crit / melee / ranged records only - for testing the POW splash.")
+
     local function Refresh()
         if not HC.db then return end
         for _, cb in pairs(checks) do cb:SetChecked(cb._get() and true or false) end

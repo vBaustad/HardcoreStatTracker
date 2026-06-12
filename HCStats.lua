@@ -1033,6 +1033,19 @@ cOut:SetStartDelay(0.9); cOut:SetOrder(2)
 comicAG:SetScript("OnFinished", function() comic:Hide() end)
 
 local lastComic = -99
+
+-- Debug helper: zero just the three hit records (and the splash cooldown) so
+-- the next hit sets a "new record" and pops the comic splash again.
+function HC:ResetHitRecords()
+    if not DB then return end
+    DB.highestCrit, DB.highestCritSpell, DB.highestCritTarget = 0, nil, nil
+    DB.biggestMelee, DB.biggestMeleeTarget = 0, nil
+    DB.biggestRanged, DB.biggestRangedTarget = 0, nil
+    lastComic = -99
+    HC:UpdateDisplay()
+    print("|cffff4444HC Stats|r: hit records reset (crit / melee / ranged). Next hit pops the splash.")
+end
+
 function HC:ComicPop(which)
     if DB and DB.comicPops == false then return end
     local now = GetTime()
