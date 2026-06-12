@@ -117,12 +117,12 @@ function HC:BuildOptions()
         function() return HC.db and HC.db.mobTooltip end,
         function(v) HC.db.mobTooltip = v end,
         "Adds \"Has hit you for up to X\" to the tooltip of mobs that have hurt you before.")
-    MakeCheck(panel, "comic", "Comic splash on new hit records (POW!)", 320, -142,
+    MakeCheck(panel, "comic", "Comic splash on new hit records (POW!)", 16, -142,
         function() return HC.db and HC.db.comicPops end,
         function(v) HC.db.comicPops = v end,
         "Pops a comic-book POW/BOOM/ZAP on screen when you set a new record crit, melee hit, or ranged hit.")
 
-    -- Mini-view sizing sliders (right side of the top area)
+    -- Mini-panel sizing/appearance sliders (right side of the top area)
     MakeSlider(panel, "font", 320, -70, 9, 20, 1,
         function(v) return "Mini-view text size: " .. v end,
         function() return HC.db and HC.db.fontSize or 12 end,
@@ -131,13 +131,17 @@ function HC:BuildOptions()
         function(v) return ("Panel scale: %.1f"):format(v) end,
         function() return HC.db and HC.db.scale or 1 end,
         function(v) HC.db.scale = v; HC:UpdateDisplay() end)
+    MakeSlider(panel, "miniopacity", 320, -142, 0.2, 1.0, 0.05,
+        function(v) return ("Mini-view opacity: %.0f%%"):format(v * 100) end,
+        function() return HC.db and HC.db.miniAlpha or 0.8 end,
+        function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end)
 
     local hdr = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    hdr:SetPoint("TOPLEFT", 16, -150)
+    hdr:SetPoint("TOPLEFT", 16, -180)
     hdr:SetText("Stats to display")
 
     -- Three columns of per-stat visibility toggles, driven by HC.STATS order.
-    local startY, rowH, colW, cols = -174, 24, 190, 3
+    local startY, rowH, colW, cols = -204, 23, 190, 3
     local perCol = math.ceil(#HC.STATS / cols)
     for i, s in ipairs(HC.STATS) do
         local key, label = s[1], s[2]
@@ -149,30 +153,28 @@ function HC:BuildOptions()
         checks[key] = cb
     end
 
-    -- Reset lives here (a deliberate spot), not on the stats window.
+    -- Reset buttons live here (a deliberate spot), not on the stats window.
     local resetY = startY - perCol * rowH - 16
     local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    resetBtn:SetSize(160, 22)
+    resetBtn:SetSize(150, 22)
     resetBtn:SetPoint("TOPLEFT", 16, resetY)
     resetBtn:SetText("Reset all records")
     resetBtn:SetScript("OnClick", function() StaticPopup_Show("HCSTATS_RESET") end)
 
-    local resetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    resetNote:SetPoint("LEFT", resetBtn, "RIGHT", 10, 0)
-    resetNote:SetText("Clears every record for this character (keeps Time Alive). Asks first.")
-
     -- Debug: zero only the three hit records so the comic splash can re-trigger.
     local hitResetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    hitResetBtn:SetSize(180, 20)
-    hitResetBtn:SetPoint("TOPLEFT", resetBtn, "BOTTOMLEFT", 0, -8)
+    hitResetBtn:SetSize(180, 22)
+    hitResetBtn:SetPoint("LEFT", resetBtn, "RIGHT", 12, 0)
     hitResetBtn:SetText("Reset hit records (debug)")
     hitResetBtn:SetScript("OnClick", function()
         if HC.ResetHitRecords then HC:ResetHitRecords() end
     end)
 
-    local hitResetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    hitResetNote:SetPoint("LEFT", hitResetBtn, "RIGHT", 10, 0)
-    hitResetNote:SetText("Zeroes crit / melee / ranged records only - for testing the POW splash.")
+    local resetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    resetNote:SetPoint("TOPLEFT", resetBtn, "BOTTOMLEFT", 0, -6)
+    resetNote:SetWidth(540); resetNote:SetJustifyH("LEFT")
+    resetNote:SetText("Reset all: clears every record for this character (keeps Time Alive, asks first). "
+        .. "Hit records: zeroes crit / melee / ranged only, for testing the splash.")
 
     local function Refresh()
         if not HC.db then return end

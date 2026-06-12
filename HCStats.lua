@@ -196,6 +196,7 @@ local LAYOUT_DEFAULTS = {
     mobTooltip = true,   -- show "has hit you for X" on mob tooltips
     comicPops  = true,   -- POW/BOOM/ZAP splash on new hit records
     fullAlpha  = 0.97,   -- full-window background opacity
+    miniAlpha  = 0.8,    -- mini-panel background opacity
     point      = { "CENTER", "CENTER", 250, 0 },
 }
 
@@ -361,13 +362,18 @@ frame:SetClampedToScreen(true)
 frame:SetMovable(true)
 frame:EnableMouse(true)
 frame:SetBackdrop({
-    bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
+    bgFile   = "Interface\\Buttons\\WHITE8X8",  -- solid: lets the slider reach true opaque
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     tile = true, tileSize = 16, edgeSize = 16,
     insets = { left = 4, right = 4, top = 4, bottom = 4 },
 })
-frame:SetBackdropColor(0, 0, 0, 0.8)
+frame:SetBackdropColor(0.05, 0.04, 0.04, 0.8)
 frame:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
+
+-- Applies the saved mini-panel opacity (called on login and from the slider).
+function HC:ApplyMiniAlpha()
+    frame:SetBackdropColor(0.05, 0.04, 0.04, (DB and DB.miniAlpha) or 0.8)
+end
 
 local STDFONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 
@@ -1850,7 +1856,7 @@ StaticPopupDialogs["HCSTATS_RESET"] = {
             fullPoint = DB.fullPoint, fontSize = DB.fontSize, scale = DB.scale,
             lastWords = DB.lastWords, showVersion = DB.showVersion, mobTooltip = DB.mobTooltip,
             announce = DB.announce, welcomed = DB.welcomed, comicPops = DB.comicPops,
-            comic = DB.comic, fullAlpha = DB.fullAlpha,
+            comic = DB.comic, fullAlpha = DB.fullAlpha, miniAlpha = DB.miniAlpha,
             playedTotal = DB.playedTotal, playedLevel = DB.playedLevel,
         }
         wipe(DB)
@@ -1975,6 +1981,7 @@ frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         ApplyDefaults()
         playerGUID = UnitGUID("player")
         RestorePosition()
+        HC:ApplyMiniAlpha()
         if HC.BuildOptions then HC:BuildOptions() end
         UpdatePet()
         HC:UpdateDisplay()
