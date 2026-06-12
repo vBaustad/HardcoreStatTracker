@@ -195,6 +195,7 @@ local LAYOUT_DEFAULTS = {
     scale      = 1,
     mobTooltip = true,   -- show "has hit you for X" on mob tooltips
     comicPops  = true,   -- POW/BOOM/ZAP splash on new hit records
+    combatTimer = true,  -- live "In Combat" line on the mini panel
     fullAlpha  = 0.97,   -- full-window background opacity
     miniAlpha  = 0.8,    -- mini-panel background opacity
     point      = { "CENTER", "CENTER", 250, 0 },
@@ -586,7 +587,7 @@ function HC:UpdateDisplay()
         end
     end
 
-    if inCombat then
+    if inCombat and DB.combatTimer ~= false then
         addRow(HC.ICONS.longestFight, "In Combat " .. FmtTime(GetTime() - combatStart),
             "|cffff9900" .. Comma(curFightDmg) .. "|r", 1, 0.6, 0)
     end
@@ -1857,6 +1858,7 @@ StaticPopupDialogs["HCSTATS_RESET"] = {
             lastWords = DB.lastWords, showVersion = DB.showVersion, mobTooltip = DB.mobTooltip,
             announce = DB.announce, welcomed = DB.welcomed, comicPops = DB.comicPops,
             comic = DB.comic, fullAlpha = DB.fullAlpha, miniAlpha = DB.miniAlpha,
+            combatTimer = DB.combatTimer,
             playedTotal = DB.playedTotal, playedLevel = DB.playedLevel,
         }
         wipe(DB)
@@ -1886,6 +1888,10 @@ SlashCmdList.HCSTATS = function(msg)
         HC:ToggleSplashPlacement()
     elseif msg == "welcome" then
         HC:ShowWelcome()
+    elseif msg == "welcome reset" then
+        DB.welcomed = nil
+        HC:ShowWelcome()
+        print("|cffff4444HC Stats|r: welcome flag cleared - it will also auto-show on next login.")
     elseif msg == "reset" then
         StaticPopup_Show("HCSTATS_RESET")
     elseif msg:match("^makgora") or msg:match("^mak'gora") then

@@ -135,6 +135,10 @@ function HC:BuildOptions()
         function(v) return ("Mini-view opacity: %.0f%%"):format(v * 100) end,
         function() return HC.db and HC.db.miniAlpha or 0.8 end,
         function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end)
+    MakeCheck(panel, "combattimer", "Show the in-combat timer line", 320, -172,
+        function() return HC.db and HC.db.combatTimer ~= false end,
+        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
+        "The live \"In Combat\" line on the mini panel showing fight time and damage taken.")
 
     local hdr = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     hdr:SetPoint("TOPLEFT", 16, -180)
@@ -163,11 +167,20 @@ function HC:BuildOptions()
 
     -- Debug: zero only the three hit records so the comic splash can re-trigger.
     local hitResetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    hitResetBtn:SetSize(180, 22)
+    hitResetBtn:SetSize(170, 22)
     hitResetBtn:SetPoint("LEFT", resetBtn, "RIGHT", 12, 0)
     hitResetBtn:SetText("Reset hit records (debug)")
     hitResetBtn:SetScript("OnClick", function()
         if HC.ResetHitRecords then HC:ResetHitRecords() end
+    end)
+
+    -- Debug: preview the first-install welcome window on demand.
+    local welcomeBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    welcomeBtn:SetSize(130, 22)
+    welcomeBtn:SetPoint("LEFT", hitResetBtn, "RIGHT", 12, 0)
+    welcomeBtn:SetText("Show welcome")
+    welcomeBtn:SetScript("OnClick", function()
+        if HC.ShowWelcome then HC:ShowWelcome() end
     end)
 
     local resetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
@@ -184,6 +197,7 @@ function HC:BuildOptions()
         local lk = _G["HCStatsCheck_locked"]; if lk then lk:SetChecked(HC.db.locked and true or false) end
         local mt = _G["HCStatsCheck_mobtip"]; if mt then mt:SetChecked(HC.db.mobTooltip and true or false) end
         local cp = _G["HCStatsCheck_comic"]; if cp then cp:SetChecked(HC.db.comicPops and true or false) end
+        local ct = _G["HCStatsCheck_combattimer"]; if ct then ct:SetChecked(HC.db.combatTimer ~= false) end
         for _, s in ipairs(sliders) do
             local v = s._get()
             s:SetValue(v)
