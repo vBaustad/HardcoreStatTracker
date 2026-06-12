@@ -864,7 +864,9 @@ local function StyleStat(r, item, x, yy, w, d, shade)
     local lc = sd.color
     r.left:SetText(sd.label)
     if lc then r.left:SetTextColor(lc[1], lc[2], lc[3]) else r.left:SetTextColor(1, 1, 1) end
-    r.right:SetText((sd.dim and "|cff777777" or "|cffffd100") .. sd.value .. "|r")
+    -- Zeroes read as noise, not achievements - dim them so real records pop.
+    local zero = (sd.value == "0" or sd.value == "0s" or sd.value == "0m")
+    r.right:SetText(((sd.dim or zero) and "|cff777777" or "|cffffd100") .. sd.value .. "|r")
     r.sub:SetWidth(w - 24)
 
     local h = ROW_BASE
@@ -912,29 +914,47 @@ function HC:RefreshFull()
     local colX = { PAD, PAD + colW + colGap }
     local y, idx, shade = -HEADER_H, 0, false
 
+    -- Sections that are pure noise for this character get skipped entirely.
+    local function SectionRelevant(name)
+        if name == "Pet" then
+            local _, class = UnitClass("player")
+            return class == "HUNTER" or class == "WARLOCK"
+                or (DB.petDeaths or 0) > 0 or UnitExists("pet")
+        end
+        if name == "Mak'gora (account-wide)" then
+            return HC.adb ~= nil
+                and ((HC.adb.makgoraWon or 0) > 0 or (HC.adb.makgoraLost or 0) > 0)
+        end
+        return true
+    end
+
     -- Walk the layout: each header spans full width; its rows pair into 2 columns.
     local i = 1
     while i <= #FULL_LAYOUT do
         local item = FULL_LAYOUT[i]
         if item.header then
-            idx = idx + 1
-            StyleHeader(GetRow(idx), item.header, y, FULL_W - PAD * 2)
-            y = y - 21
+            local header = item.header
             i = i + 1
             local items = {}
             while i <= #FULL_LAYOUT and not FULL_LAYOUT[i].header do
                 items[#items + 1] = FULL_LAYOUT[i]; i = i + 1
             end
-            for j = 1, #items, 2 do
-                shade = not shade
+            if SectionRelevant(header) then
+                if idx > 0 then y = y - 6 end  -- breathing room between sections
                 idx = idx + 1
-                local h1 = StyleStat(GetRow(idx), items[j], colX[1], y, colW, d, shade)
-                local h2 = 0
-                if items[j + 1] then
+                StyleHeader(GetRow(idx), header, y, FULL_W - PAD * 2)
+                y = y - 21
+                for j = 1, #items, 2 do
+                    shade = not shade
                     idx = idx + 1
-                    h2 = StyleStat(GetRow(idx), items[j + 1], colX[2], y, colW, d, shade)
+                    local h1 = StyleStat(GetRow(idx), items[j], colX[1], y, colW, d, shade)
+                    local h2 = 0
+                    if items[j + 1] then
+                        idx = idx + 1
+                        h2 = StyleStat(GetRow(idx), items[j + 1], colX[2], y, colW, d, shade)
+                    end
+                    y = y - math.max(h1, h2) - 2
                 end
-                y = y - math.max(h1, h2) - 2
             end
         else
             i = i + 1
