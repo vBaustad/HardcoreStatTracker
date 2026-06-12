@@ -1046,6 +1046,14 @@ function HC:ResetHitRecords()
     print("|cffff4444HC Stats|r: hit records reset (crit / melee / ranged). Next hit pops the splash.")
 end
 
+-- Each splash has its own home spot (plus jitter), so they read like panels
+-- on a comic page: POW upper-right, BOOM upper-left, ZAP lower-right.
+local COMIC_POS = {
+    pow  = { x =  150, y = 100 },
+    boom = { x = -170, y =  90 },
+    zap  = { x =  160, y = -60 },
+}
+
 function HC:ComicPop(which)
     if DB and DB.comicPops == false then return end
     local now = GetTime()
@@ -1053,9 +1061,10 @@ function HC:ComicPop(which)
     lastComic = now
     comicTex:SetTexture("Interface\\AddOns\\HCStats\\Media\\" .. which)
     comicTex:SetRotation(math.rad(math.random(-18, 14)))  -- comic-book tilt
+    local p = COMIC_POS[which] or COMIC_POS.pow
     comic:ClearAllPoints()
     comic:SetPoint("CENTER", UIParent, "CENTER",
-        150 + math.random(-30, 60), 90 + math.random(-25, 50))  -- off-center, varied
+        p.x + math.random(-30, 30), p.y + math.random(-25, 25))
     comic:Show()
     comicAG:Stop()
     comicAG:Play()
