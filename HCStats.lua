@@ -700,7 +700,9 @@ full:SetClampedToScreen(true)
 full:SetMovable(true)
 full:EnableMouse(true)
 full:SetBackdrop({
-    bgFile   = "Interface\\Tooltips\\UI-Tooltip-Background",
+    -- Solid fill: the tooltip background texture is inherently translucent,
+    -- so the slider's max could never reach actually-opaque with it.
+    bgFile   = "Interface\\Buttons\\WHITE8X8",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     tile = true, tileSize = 16, edgeSize = 16,
     insets = { left = 4, right = 4, top = 4, bottom = 4 },
@@ -838,10 +840,10 @@ local function CreateRow()
     r.icon:SetPoint("TOPLEFT", 2, -3)
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.left = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    r.left:SetFont(STDFONT, 12, "")    -- quiet labels...
+    r.left:SetFont(STDFONT, 11, "")    -- quiet labels...
     r.left:SetJustifyH("LEFT")
     r.right = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    r.right:SetFont(STDFONT, 17, "")   -- ...loud numbers
+    r.right:SetFont(STDFONT, 15, "")   -- ...loud numbers
     r.right:SetPoint("TOPRIGHT", -4, -3)
     r.right:SetJustifyH("RIGHT")
     r.sub = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
