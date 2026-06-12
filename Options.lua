@@ -121,6 +121,10 @@ function HC:BuildOptions()
         function() return HC.db and HC.db.comicPops end,
         function(v) HC.db.comicPops = v end,
         "Pops a comic-book POW/BOOM/ZAP on screen when you set a new record crit, melee hit, or ranged hit.")
+    MakeCheck(panel, "combattimer", "Show the in-combat timer line", 16, -168,
+        function() return HC.db and HC.db.combatTimer ~= false end,
+        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
+        "The live \"In Combat\" line on the mini panel showing fight time and damage taken.")
 
     -- Mini-panel sizing/appearance sliders (right side of the top area)
     MakeSlider(panel, "font", 320, -70, 9, 20, 1,
@@ -135,17 +139,13 @@ function HC:BuildOptions()
         function(v) return ("Mini-view opacity: %.0f%%"):format(v * 100) end,
         function() return HC.db and HC.db.miniAlpha or 0.8 end,
         function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end)
-    MakeCheck(panel, "combattimer", "Show the in-combat timer line", 320, -172,
-        function() return HC.db and HC.db.combatTimer ~= false end,
-        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
-        "The live \"In Combat\" line on the mini panel showing fight time and damage taken.")
 
     local hdr = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    hdr:SetPoint("TOPLEFT", 16, -180)
+    hdr:SetPoint("TOPLEFT", 16, -200)
     hdr:SetText("Stats to display")
 
     -- Three columns of per-stat visibility toggles, driven by HC.STATS order.
-    local startY, rowH, colW, cols = -204, 23, 190, 3
+    local startY, rowH, colW, cols = -222, 23, 190, 3
     local perCol = math.ceil(#HC.STATS / cols)
     for i, s in ipairs(HC.STATS) do
         local key, label = s[1], s[2]
