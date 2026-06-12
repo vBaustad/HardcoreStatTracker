@@ -1046,12 +1046,14 @@ function HC:ResetHitRecords()
     print("|cffff4444HC Stats|r: hit records reset (crit / melee / ranged). Next hit pops the splash.")
 end
 
--- Each splash has its own home spot (plus jitter), so they read like panels
--- on a comic page: POW upper-right, BOOM upper-left, ZAP lower-right.
+-- Each splash has its own home spot and tilt direction (plus jitter), so they
+-- read like panels on a comic page: POW upper-right leaning right, BOOM
+-- upper-left leaning left, ZAP lower-right tilting either way.
+-- (SetRotation: positive radians = counter-clockwise = top leans left.)
 local COMIC_POS = {
-    pow  = { x =  150, y = 100 },
-    boom = { x = -170, y =  90 },
-    zap  = { x =  160, y = -60 },
+    pow  = { x =  150, y = 100, tiltMin = -18, tiltMax = -6 },
+    boom = { x = -170, y =  90, tiltMin =   6, tiltMax = 18 },
+    zap  = { x =  160, y = -60, tiltMin = -15, tiltMax = 15 },
 }
 
 function HC:ComicPop(which)
@@ -1059,9 +1061,9 @@ function HC:ComicPop(which)
     local now = GetTime()
     if now - lastComic < 8 then return end  -- early levels set records constantly
     lastComic = now
-    comicTex:SetTexture("Interface\\AddOns\\HCStats\\Media\\" .. which)
-    comicTex:SetRotation(math.rad(math.random(-18, 14)))  -- comic-book tilt
     local p = COMIC_POS[which] or COMIC_POS.pow
+    comicTex:SetTexture("Interface\\AddOns\\HCStats\\Media\\" .. which)
+    comicTex:SetRotation(math.rad(math.random(p.tiltMin, p.tiltMax)))
     comic:ClearAllPoints()
     comic:SetPoint("CENTER", UIParent, "CENTER",
         p.x + math.random(-30, 30), p.y + math.random(-25, 25))
