@@ -214,6 +214,7 @@ local function ApplyDefaults()
     if not HCStatsDB.petDeathLog then HCStatsDB.petDeathLog = {} end
     if not HCStatsDB.partyDeathLog then HCStatsDB.partyDeathLog = {} end
     if not HCStatsDB.zonesVisited then HCStatsDB.zonesVisited = {} end
+    if not HCStatsDB.recordStamps then HCStatsDB.recordStamps = {} end  -- [statKey] = time() of last record
 
     -- One-time smart defaults for the mini view: keep it to a tight core, and
     -- only show pet stats for pet classes. Existing user toggles are preserved.
@@ -483,7 +484,7 @@ HC.ICONS = {
     partyDeaths  = ICONP .. "INV_Misc_Bone_HumanSkull_02",
     mostFoes     = ICONP .. "Ability_Warrior_Challange",
     clutchSaves  = ICONP .. "Spell_Holy_Restoration",
-    untouched    = ICONP .. "Ability_Rogue_Evasion",
+    untouched    = ICONP .. "Ability_Parry",
     dmgTaken     = ICONP .. "Spell_Shadow_ShadowWordPain",
     quests       = ICONP .. "INV_Scroll_08",
     zones        = ICONP .. "INV_Misc_Map_01",
@@ -620,10 +621,15 @@ function HC:StatData()
                 DB.closestSecSource and (", vs " .. DB.closestSecSource) or "") } }
     else d.nearestDeath = { label = "Nearest Death", value = "--", dim = true } end
 
+    -- "(Melee)" on an auto-attack is noise; only name the ability when it's one.
+    local hitSpell = DB.biggestHitSpell
+    local hitBy = DB.biggestHitSource
+    if hitBy and hitSpell and hitSpell ~= "Melee" then
+        hitBy = hitBy .. " (" .. hitSpell .. ")"
+    end
     d.biggestHit = { label = "Biggest Hit Taken", value = Comma(DB.biggestHit),
-        notes = DB.biggestHitSource and { string.format("%s (%s), level %s in %s",
-            DB.biggestHitSource, DB.biggestHitSpell or "?", tostring(DB.biggestHitLevel or "?"),
-            DB.biggestHitZone or "?") } }
+        notes = hitBy and { string.format("%s, level %s in %s", hitBy,
+            tostring(DB.biggestHitLevel or "?"), DB.biggestHitZone or "?") } }
     d.highestCrit = { label = "Highest Crit", value = Comma(DB.highestCrit),
         notes = DB.highestCritSpell and
             { string.format("%s -> %s", DB.highestCritSpell, DB.highestCritTarget or "?") } }
@@ -698,7 +704,7 @@ full:SetBackdrop({
     tile = true, tileSize = 16, edgeSize = 16,
     insets = { left = 4, right = 4, top = 4, bottom = 4 },
 })
-full:SetBackdropColor(0, 0, 0, 0.92)
+full:SetBackdropColor(0.05, 0.04, 0.04, 0.97)  -- near-opaque: the world behind hurt readability
 full:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
 full:Hide()
 tinsert(UISpecialFrames, "HCStatsFullFrame")  -- Escape closes the window
@@ -719,7 +725,7 @@ full:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then
 full:SetScript("OnMouseUp", function() StopFullDrag() end)
 
 -- Layout: ordered sections (header rows) and stat rows with an icon each.
-local FULL_W, PAD, HEADER_H, ROW_BASE = 540, 12, 50, 22
+local FULL_W, PAD, HEADER_H, ROW_BASE = 540, 12, 50, 24
 local ICON = "Interface\\Icons\\"
 local FULL_LAYOUT = {
     { header = "Survival" },
@@ -729,7 +735,7 @@ local FULL_LAYOUT = {
     { key = "highestFall",  icon = ICON .. "Spell_Magic_FeatherFall" },
     { key = "panic",        icon = ICON .. "Spell_Shadow_PsychicScream" },
     { key = "clutchSaves",  icon = ICON .. "Spell_Holy_Restoration" },
-    { key = "untouched",    icon = ICON .. "Ability_Rogue_Evasion" },
+    { key = "untouched",    icon = ICON .. "Ability_Parry" },
     { key = "mostFoes",     icon = ICON .. "Ability_Warrior_Challange" },
     { key = "fights",       icon = ICON .. "Ability_Warrior_Revenge" },
     { key = "dmgTaken",     icon = ICON .. "Spell_Shadow_ShadowWordPain" },
@@ -813,12 +819,14 @@ local function CreateRow()
     r:SetScript("OnMouseDown", function(_, btn) if btn == "LeftButton" then StartFullDrag() end end)
     r:SetScript("OnMouseUp", function() StopFullDrag() end)
     r.icon = r:CreateTexture(nil, "ARTWORK")
-    r.icon:SetSize(16, 16)
+    r.icon:SetSize(18, 18)
     r.icon:SetPoint("TOPLEFT", 2, -3)
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.left = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    r.left:SetFont(STDFONT, 13, "")
     r.left:SetJustifyH("LEFT")
     r.right = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    r.right:SetFont(STDFONT, 15, "")   -- the values are the point - let them lead
     r.right:SetPoint("TOPRIGHT", -4, -4)
     r.right:SetJustifyH("RIGHT")
     r.sub = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -858,11 +866,21 @@ local function StyleStat(r, item, x, yy, w, d, shade)
     r:SetWidth(w)
     local sd = d[item.key] or { label = item.key, value = "--", dim = true }
     r._key, r._label = item.key, sd.label
-    r.bg:SetColorTexture(1, 1, 1, shade and 0.05 or 0.015)
+
+    -- Records set in the last 30 minutes get celebrated: warm gold row + tag.
+    local stamp = DB.recordStamps and DB.recordStamps[item.key]
+    local fresh = stamp and (time() - stamp) < 1800
+    if fresh then
+        r.bg:SetColorTexture(1, 0.72, 0.1, 0.12)
+        r.left:SetText(sd.label .. "  |cffffe080new!|r")
+    else
+        r.bg:SetColorTexture(1, 1, 1, shade and 0.09 or 0.03)
+        r.left:SetText(sd.label)
+    end
+
     r.icon:Show(); r.icon:SetTexture(item.icon)
     r.left:ClearAllPoints(); r.left:SetPoint("TOPLEFT", r.icon, "TOPRIGHT", 6, -1)
     local lc = sd.color
-    r.left:SetText(sd.label)
     if lc then r.left:SetTextColor(lc[1], lc[2], lc[3]) else r.left:SetTextColor(1, 1, 1) end
     -- Zeroes read as noise, not achievements - dim them so real records pop.
     local zero = (sd.value == "0" or sd.value == "0s" or sd.value == "0m")
@@ -1143,9 +1161,16 @@ function HC:ComicPop(which)
     f.ag:Play()
 end
 
--- Called wherever a record stat improves; pops whatever splashes are linked.
+-- Remember when a record was set, so the full window can flag it as "new!".
+function HC:StampRecord(statKey)
+    if DB and DB.recordStamps then DB.recordStamps[statKey] = time() end
+end
+
+-- Called wherever a record stat improves; stamps it and pops linked splashes.
 function HC:ComicEvent(statKey)
-    if not DB or not DB.comic then return end
+    if not DB then return end
+    HC:StampRecord(statKey)
+    if not DB.comic then return end
     for which, conf in pairs(DB.comic) do
         if conf.stat == statKey then HC:ComicPop(which) end
     end
@@ -1626,7 +1651,10 @@ local function OnCombatLog()
         end
         if inCombat and untouchedStart then  -- a hit ends the current no-hit streak
             local stretch = GetTime() - untouchedStart
-            if stretch > DB.untouched then DB.untouched = stretch end
+            if stretch > DB.untouched then
+                DB.untouched = stretch
+                HC:StampRecord("untouched")
+            end
             untouchedStart = GetTime()
         end
 
@@ -1677,15 +1705,20 @@ local function OnCombatEnd()
         if dur > DB.longestFight then
             DB.longestFight     = dur
             DB.longestFightZone = GetZoneText()
+            HC:StampRecord("longestFight")
         end
         if curFightDmg > DB.mostDmgFight then
             DB.mostDmgFight     = curFightDmg
             DB.mostDmgFightZone = GetZoneText()
+            HC:StampRecord("mostDmgFight")
         end
         -- Untouched streak: the final stretch from last hit to combat end.
         if untouchedStart then
             local stretch = GetTime() - untouchedStart
-            if stretch > DB.untouched then DB.untouched = stretch end
+            if stretch > DB.untouched then
+                DB.untouched = stretch
+                HC:StampRecord("untouched")
+            end
         end
         -- Clutch save: dropped low but lived through the fight.
         if fightWentLow and (UnitHealth("player") or 0) > 0 then
