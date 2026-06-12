@@ -117,6 +117,10 @@ function HC:BuildOptions()
         function() return HC.db and HC.db.mobTooltip end,
         function(v) HC.db.mobTooltip = v end,
         "Adds \"Has hit you for up to X\" to the tooltip of mobs that have hurt you before.")
+    MakeCheck(panel, "comic", "Comic splash on new hit records (POW!)", 320, -142,
+        function() return HC.db and HC.db.comicPops end,
+        function(v) HC.db.comicPops = v end,
+        "Pops a comic-book POW/BOOM/ZAP on screen when you set a new record crit, melee hit, or ranged hit.")
 
     -- Mini-view sizing sliders (right side of the top area)
     MakeSlider(panel, "font", 320, -70, 9, 20, 1,
@@ -164,6 +168,7 @@ function HC:BuildOptions()
         local sh = _G["HCStatsCheck_shown"]; if sh then sh:SetChecked(HC.db.shown and true or false) end
         local lk = _G["HCStatsCheck_locked"]; if lk then lk:SetChecked(HC.db.locked and true or false) end
         local mt = _G["HCStatsCheck_mobtip"]; if mt then mt:SetChecked(HC.db.mobTooltip and true or false) end
+        local cp = _G["HCStatsCheck_comic"]; if cp then cp:SetChecked(HC.db.comicPops and true or false) end
         for _, s in ipairs(sliders) do
             local v = s._get()
             s:SetValue(v)

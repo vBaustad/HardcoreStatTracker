@@ -194,6 +194,7 @@ local LAYOUT_DEFAULTS = {
     fontSize   = 12,
     scale      = 1,
     mobTooltip = true,   -- show "has hit you for X" on mob tooltips
+    comicPops  = true,   -- POW/BOOM/ZAP splash on new hit records
     point      = { "CENTER", "CENTER", 250, 0 },
 }
 
@@ -1004,6 +1005,49 @@ local fa2 = flashAG:CreateAnimation("Alpha")
 fa2:SetFromAlpha(0.35); fa2:SetToAlpha(0); fa2:SetDuration(0.9); fa2:SetOrder(2)
 flashAG:SetScript("OnFinished", function() flash:Hide() end)
 
+-- ---------------------------------------------------------------------------
+-- Comic-book splash (POW/BOOM/ZAP) on new hit records
+-- ---------------------------------------------------------------------------
+local comic = CreateFrame("Frame", nil, UIParent)
+comic:SetSize(150, 150)
+comic:SetFrameStrata("HIGH")
+comic:EnableMouse(false)
+comic:Hide()
+local comicTex = comic:CreateTexture(nil, "ARTWORK")
+comicTex:SetAllPoints()
+
+local comicAG = comic:CreateAnimationGroup()
+local cIn = comicAG:CreateAnimation("Alpha")
+cIn:SetFromAlpha(0); cIn:SetToAlpha(1); cIn:SetDuration(0.08); cIn:SetOrder(1)
+local cGrow = comicAG:CreateAnimation("Scale")
+if cGrow.SetScaleFrom then
+    cGrow:SetScaleFrom(0.4, 0.4); cGrow:SetScaleTo(1, 1)
+else
+    cGrow:SetFromScale(0.4, 0.4); cGrow:SetToScale(1, 1)  -- older anim API
+end
+cGrow:SetOrigin("CENTER", 0, 0)
+cGrow:SetDuration(0.14); cGrow:SetOrder(1)
+local cOut = comicAG:CreateAnimation("Alpha")
+cOut:SetFromAlpha(1); cOut:SetToAlpha(0); cOut:SetDuration(0.45)
+cOut:SetStartDelay(0.9); cOut:SetOrder(2)
+comicAG:SetScript("OnFinished", function() comic:Hide() end)
+
+local lastComic = -99
+function HC:ComicPop(which)
+    if DB and DB.comicPops == false then return end
+    local now = GetTime()
+    if now - lastComic < 8 then return end  -- early levels set records constantly
+    lastComic = now
+    comicTex:SetTexture("Interface\\AddOns\\HCStats\\Media\\" .. which)
+    comicTex:SetRotation(math.rad(math.random(-18, 14)))  -- comic-book tilt
+    comic:ClearAllPoints()
+    comic:SetPoint("CENTER", UIParent, "CENTER",
+        150 + math.random(-30, 60), 90 + math.random(-25, 50))  -- off-center, varied
+    comic:Show()
+    comicAG:Stop()
+    comicAG:Play()
+end
+
 function HC:RandomLastWord()
     local lw = DB.lastWords
     local customs = {}
@@ -1387,6 +1431,7 @@ local function OnCombatLog()
         DB.highestCritSpell  = spellName
         DB.highestCritTarget = dstName
         changed = true
+        HC:ComicPop("pow")
     end
 
     -- Weapon auto-attacks: SWING = melee weapon, RANGE = ranged weapon.
@@ -1394,9 +1439,11 @@ local function OnCombatLog()
         if sub == "SWING_DAMAGE" and amount > DB.biggestMelee then
             DB.biggestMelee, DB.biggestMeleeTarget = amount, dstName
             changed = true
+            HC:ComicPop("boom")
         elseif sub == "RANGE_DAMAGE" and amount > DB.biggestRanged then
             DB.biggestRanged, DB.biggestRangedTarget = amount, dstName
             changed = true
+            HC:ComicPop("zap")
         end
     end
 
@@ -1518,7 +1565,7 @@ StaticPopupDialogs["HCSTATS_RESET"] = {
             shown = DB.shown, locked = DB.locked, point = DB.point, show = DB.show,
             fullPoint = DB.fullPoint, fontSize = DB.fontSize, scale = DB.scale,
             lastWords = DB.lastWords, showVersion = DB.showVersion, mobTooltip = DB.mobTooltip,
-            announce = DB.announce, welcomed = DB.welcomed,
+            announce = DB.announce, welcomed = DB.welcomed, comicPops = DB.comicPops,
             playedTotal = DB.playedTotal, playedLevel = DB.playedLevel,
         }
         wipe(DB)
