@@ -6,16 +6,20 @@
 
 ## Features
 
-- **Survival records** — Closest Call (lowest HP% + the raw number), Nearest Death (how many seconds from dying you were, based on incoming DPS), Biggest Hit Taken, Highest Fall, Clutch Saves, Untouched Streak, Most Foes at Once, Panic Moments.
-- **Combat records** — Highest Crit, Biggest Melee/Ranged Hit, Killing Blows, Longest Fight, Most Damage in One Fight, Toughest Foe (highest level above you that you took on).
-- **Pet & group** — current pet, pet deaths (with a log), party-member deaths you witnessed, and buffs you've put on other players.
-- **Adventure** — quests completed, zones explored, total damage taken, time alive.
+- **Survival records** — Closest Call (lowest HP% + the raw number), Nearest Death (how many seconds from dying you were, based on incoming DPS), Biggest Hit Taken, Highest Fall (as a share of your max HP at impact — a number that actually means something across levels), Clutch Saves, Untouched Streak, Most Foes at Once, Panic Moments, Fights Survived, Total Damage Taken.
+- **Combat records** — Highest Crit, Biggest Melee / Ranged / Spell Hit, Killing Blows, Longest Fight, Most Damage Taken in One Fight, Toughest Foe (highest level above you that you took on).
+- **Healing records** — Biggest Heal, Total Healing (effective, overheal excluded), and Players Saved (a direct heal that pulled a critically-low party member back from the brink).
+- **Pet & group** — current pet, pet deaths (with a log), Pet Killing Blows (tracked separately for pet-only challenges), party-member deaths you witnessed, and buffs you've put on other players.
+- **Wealth** — Gold Earned (lifetime income — loot, quests, vendoring) and Gold Looted (coin straight off kills and loot).
+- **Adventure** — quests completed, zones explored, and Time Alive (your `/played`, which for a hardcore character *is* your time alive).
 - **Mak'gora (account-wide)** — duels won and lost, persisting across all your characters.
 - **Mob tooltips (account-wide)** — hover a mob and see "Has hit you for up to X (at lvl Y)" if it's hurt any of your characters before. Your new character inherits the warnings.
-- **Comic splashes** — optional fun: a comic-book **POW! / BOOM! / ZAP!** pops on screen when you set a new record (crit / melee / ranged by default). Each splash can be turned off, dragged anywhere, and linked to any record stat you like.
+- **Records integrity (anti-fake)** — the full window shows how many times this character's records have been reset, and runs an integrity check on the saved file. If the `SavedVariables` were hand-edited outside the game, the character is flagged. *(This catches casual file edits — it is a deterrent, not unbreakable tamper-proofing.)*
+- **Comic splashes** — optional fun: a comic-book **POW! / BOOM! / ZAP!** pops on screen when you set a new record (crit / melee / ranged by default). Each of the six slots can be turned off, dragged anywhere, linked to any record stat, and given its own sound.
 - **Famous Last Words** — optional: when you drop low, broadcast a cocky/ironic line to chat (built-in surprise pool + your own messages) and/or fire an attention alert (screen flash + sound). Independent thresholds for the chat line and the alert.
-- **Record announcements** — optional: a few seconds after a fight you survive, brag about new personal bests in party chat (or /say solo, never raid; optional guild-only), with a per-fight cap so it stays rare.
-- **Two views** — a customizable mini panel (pick exactly which stats show; pets default to pet classes only) and a designed two-column full window with icons, a color-coded danger bar, per-stat explanation tooltips, a background-opacity slider, "new!" highlights on fresh records, and Escape-to-close.
+- **Record announcements** — optional, two separate streams: new personal bests go to **party / say** a few seconds after a fight you survive (never raid, with a per-fight cap so it stays rare); and an opt-in **guild** line only for genuine clutch survivals (dropping to ≤5% HP and living), rate-limited and never fired from the grave.
+- **Two views** — a customizable mini panel (pick exactly which stats show; pets default to pet classes only) and a designed two-column full window with icons, a color-coded danger bar, per-stat explanation tooltips, "new!" highlights on fresh records, and Escape-to-close. Anything you enable on the mini panel also shows in the full window — even in sections it would otherwise hide for your class.
+- **Quick Settings** — the full window's **Display** button opens a popup with live scale and background-opacity sliders for both the mini panel and the full window.
 - **Adjustable** — text size, panel scale, background opacity, draggable frames, full per-stat visibility control.
 
 ## Installation

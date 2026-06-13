@@ -48,7 +48,9 @@ function HC:ShowWelcome()
         .. "|cffffd100-|r  Choose which stats appear, by category, in |cffffd100Settings|r\n"
         .. "|cffffd100-|r  Click |cffffd100[+]|r on the panel for the full window with every stat\n"
         .. "|cffffd100-|r  Optional flair: comic splashes, a low-health alert, famous last\n"
-        .. "    words, mob damage warnings, and rare survival brags to chat")
+        .. "    words, mob damage warnings, and rare survival brags to chat\n"
+        .. "|cffffd100-|r  Your records stay honest - the full window counts resets and\n"
+        .. "    flags a save file edited outside the game")
 
     local settingsBtn = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
     settingsBtn:SetSize(110, 22)
