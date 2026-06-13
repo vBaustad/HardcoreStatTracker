@@ -150,6 +150,7 @@ HC.frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 HC.frame:RegisterEvent("CHAT_MSG_SYSTEM")
 HC.frame:RegisterEvent("PLAYER_MONEY")
 HC.frame:RegisterEvent("CHAT_MSG_MONEY")
+HC.frame:RegisterEvent("CHAT_MSG_LOOT")
 HC.frame:RegisterEvent("PLAYER_DEAD")
 HC.frame:RegisterEvent("PLAYER_LOGOUT")  -- last chance to write a fresh integrity stamp
 -- player drives the low-health features; party1-4 power the "players saved" stat.
@@ -212,6 +213,8 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC.OnMoney()
     elseif event == "CHAT_MSG_MONEY" then
         HC.OnLootMoney(arg1)
+    elseif event == "CHAT_MSG_LOOT" then
+        HC.OnLoot(arg1)
     elseif event == "PLAYER_DEAD" then
         if HC.ClearAnnounce then HC:ClearAnnounce() end   -- never brag from the grave
     elseif event == "PLAYER_LOGOUT" then

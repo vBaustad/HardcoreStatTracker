@@ -458,7 +458,7 @@ function HC:BuildSplashOptions()
 
     local posNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     posNote:SetPoint("TOPLEFT", 16, -420)
-    posNote:SetText("Position to drag, Lock to save. (also /hst splashes)")
+    posNote:SetText("Position hides this window and shows a small drag-and-lock panel. (also /hst splashes)")
 
     local function Refresh()
         if not (HC.db and HC.db.comic) then return end

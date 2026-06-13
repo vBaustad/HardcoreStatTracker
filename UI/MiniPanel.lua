@@ -160,6 +160,7 @@ HC.STATS = {
     { "buffsGiven",   "Buffs Given",    function() return Comma(HC.db.buffsGiven) end },
     { "goldEarned",   "Gold Earned",    function() return GetCoinTextureString(HC.db.goldEarned or 0) end },
     { "goldLooted",   "Gold Looted",    function() return GetCoinTextureString(HC.db.goldLooted or 0) end },
+    { "bagsLooted",   "Bags Looted",    function() return Comma(HC.db.bagsLooted) end },
 }
 
 -- Stats grouped by category (mirrors the full window's sections). Used by the
@@ -173,7 +174,7 @@ HC.STAT_GROUPS = {
     { "Pet",       { "currentPet", "petDeaths", "petKillingBlows" } },
     { "Group",     { "partyDeaths", "buffsGiven" } },
     { "Adventure", { "quests", "zones" } },
-    { "Wealth",    { "goldEarned", "goldLooted" } },
+    { "Wealth",    { "goldEarned", "goldLooted", "bagsLooted" } },
     { "Mak'gora",  { "makgoraWon", "makgoraLost" } },
     { "Character", { "timeAlive" } },
 }
@@ -194,6 +195,7 @@ HC.ICONS = {
     playersSaved = ICONP .. "Spell_Holy_LayOnHands",
     goldEarned   = ICONP .. "INV_Misc_Coin_01",
     goldLooted   = ICONP .. "INV_Misc_Coin_02",
+    bagsLooted   = ICONP .. "INV_Misc_Bag_10",
     highestFall  = ICONP .. "Spell_Magic_FeatherFall",
     longestFight = ICONP .. "Ability_DualWield",
     mostDmgFight = ICONP .. "Spell_Fire_Fireball02",
@@ -231,6 +233,7 @@ HC.STAT_HELP = {
     playersSaved = "Times you landed a direct heal on a party member who was critically low (20% HP or less), pulling them back from the brink. Counted once per close call.",
     goldEarned   = "Every copper earned on this character, lifetime - loot, quest rewards, vendor sales. Spending doesn't reduce it.",
     goldLooted   = "Coin picked up directly from kills and loot, lifetime - vendor sales and quest rewards don't count.",
+    bagsLooted   = "Containers (bags, quivers, pouches) you've looted off corpses and chests - lifetime. Bags bought from a vendor don't count.",
     highestFall  = "The worst fall you've survived, as a share of your max HP at the time (the raw damage is shown too). A 230 fall is trivial at 5000 HP but nearly lethal at 300.",
     longestFight = "Your longest single stretch of combat.",
     mostDmgFight = "The most total damage you've taken within one fight.",

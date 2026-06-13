@@ -8,7 +8,8 @@ anti-fake records-integrity check.
 ### New stats
 - **Healing:** Biggest Heal, Total Healing (effective, overheal excluded), and
   Players Saved (a direct heal on a critically-low party member).
-- **Wealth:** Gold Earned (lifetime income) and Gold Looted (coin off kills/loot).
+- **Wealth:** Gold Earned (lifetime income), Gold Looted (coin off kills/loot),
+  and Bags Looted (containers looted off corpses/chests — vendor buys don't count).
 - **Biggest Spell Hit** — your largest single direct spell hit (DoT ticks excluded).
 - **Pet Killing Blows** — split out from Killing Blows, tracked separately.
 - **Highest Fall** now ranks by **% of your max HP** at impact (raw damage shown

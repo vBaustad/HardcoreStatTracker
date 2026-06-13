@@ -94,6 +94,21 @@ function HC.OnLootMoney(msg)
     end
 end
 
+-- Bags looted: count containers (bags, quivers, pouches) you actually loot off
+-- corpses/chests - never vendor purchases, which don't fire a loot line. enUS
+-- loot text: "You receive loot: [Item].' / '...[Item]xN.'.
+function HC.OnLoot(msg)
+    if not HC.db or not msg then return end
+    local link, count = msg:match("You receive loot: (|c.-|r)x?(%d*)")
+    if not link then return end
+    -- LE_ITEM_CLASS_CONTAINER == 1; classID is the 6th return of GetItemInfoInstant.
+    local classID = select(6, GetItemInfoInstant(link))
+    if classID == 1 then
+        HC.db.bagsLooted = (HC.db.bagsLooted or 0) + (tonumber(count) or 1)
+        HC:UpdateDisplay()
+    end
+end
+
 -- Best-effort Mak'gora win/loss detection from the system message. The exact
 -- wording isn't documented here, so this matches loosely and there's a manual
 -- fallback (/hst makgora won|lost) plus a capture mode (/hst makgora debug).

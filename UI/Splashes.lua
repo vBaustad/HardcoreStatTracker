@@ -242,6 +242,76 @@ placeAnimator:SetScript("OnUpdate", function(_, elapsed)
     end
 end)
 
+-- Floating control window shown while positioning splashes. During placement the
+-- Blizzard settings window is hidden (it covers the splashes), so this little
+-- panel - styled like the full window's Quick Settings popup - carries the only
+-- two actions you need: lock them down, or hop back to settings.
+local placeControls
+local function EnsurePlacementControls()
+    if placeControls then return placeControls end
+    local f = CreateFrame("Frame", "HardcoreStatTrackerSplashPlace", UIParent, "BackdropTemplate")
+    f:SetSize(232, 126)
+    f:SetFrameStrata("FULLSCREEN_DIALOG")   -- above the HIGH-strata splashes
+    f:SetClampedToScreen(true)
+    f:SetMovable(true); f:EnableMouse(true)
+    f:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
+    })
+    f:SetBackdropColor(0.05, 0.04, 0.04, 0.95)
+    f:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
+    tinsert(UISpecialFrames, "HardcoreStatTrackerSplashPlace")  -- Escape locks & closes
+    f:SetScript("OnMouseDown", function(self) self:StartMoving() end)
+    f:SetScript("OnMouseUp", function(self)
+        self:StopMovingOrSizing()
+        local p, _, rp, x, y = self:GetPoint()
+        if p and HC.db then HC.db.splashCtrlPoint = { p, rp, math.floor(x), math.floor(y) } end
+    end)
+    -- Closing it (Escape / no close button needed) means "I'm done" -> lock.
+    f:SetScript("OnHide", function()
+        if splashPlacement then HC:SetSplashPlacement(false) end
+    end)
+
+    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOP", 0, -10)
+    title:SetText("|cffff4444Positioning Splashes|r")
+
+    local note = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    note:SetPoint("TOP", 0, -30)
+    note:SetWidth(204); note:SetJustifyH("CENTER")
+    note:SetText("Drag each splash where you want it.")
+
+    local lock = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    lock:SetSize(204, 24)
+    lock:SetPoint("TOP", 0, -56)
+    lock:SetText("Lock positions")
+    lock:SetScript("OnClick", function() HC:SetSplashPlacement(false) end)
+
+    local back = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    back:SetSize(204, 24)
+    back:SetPoint("TOP", 0, -86)
+    back:SetText("Open settings panel")
+    back:SetScript("OnClick", function()
+        HC:SetSplashPlacement(false)
+        if HC.OpenOptions then HC:OpenOptions() end
+    end)
+
+    placeControls = f
+    return f
+end
+
+-- Close the Blizzard settings window (modern Settings panel or the legacy one)
+-- so it isn't sitting on top of the splashes during placement.
+local function HideSettingsWindow()
+    if SettingsPanel and SettingsPanel:IsShown() then
+        HideUIPanel(SettingsPanel)
+    elseif InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown() then
+        HideUIPanel(InterfaceOptionsFrame)
+    end
+end
+
 -- Enter/leave placement mode. Active slots (art ~= "none") show their art over a
 -- green overlay with a marching border, and become draggable; positions save on drop.
 function HC:SetSplashPlacement(on)
@@ -273,9 +343,20 @@ function HC:SetSplashPlacement(on)
             f:Hide()
         end
     end
-    if splashPlacement then placeAnimator:Show() else placeAnimator:Hide() end
+    if splashPlacement then
+        placeAnimator:Show()
+        HideSettingsWindow()
+        local f = EnsurePlacementControls()
+        f:ClearAllPoints()
+        local p = HC.db.splashCtrlPoint
+        if p then f:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else f:SetPoint("TOP", 0, -140) end
+        f:Show()
+    else
+        placeAnimator:Hide()
+        if placeControls then placeControls:Hide() end
+    end
     print("|cffff4444Hardcore Stat Tracker|r: " .. (splashPlacement
-        and "drag the splashes where you want them, then click Lock (or /hst splashes) to save."
+        and "drag the splashes where you want them, then click Lock positions (or /hst splashes) to save."
         or "splash positions saved."))
 end
 

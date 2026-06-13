@@ -10,7 +10,7 @@
 - **Combat records** — Highest Crit, Biggest Melee / Ranged / Spell Hit, Killing Blows, Longest Fight, Most Damage Taken in One Fight, Toughest Foe (highest level above you that you took on).
 - **Healing records** — Biggest Heal, Total Healing (effective, overheal excluded), and Players Saved (a direct heal that pulled a critically-low party member back from the brink).
 - **Pet & group** — current pet, pet deaths (with a log), Pet Killing Blows (tracked separately for pet-only challenges), party-member deaths you witnessed, and buffs you've put on other players.
-- **Wealth** — Gold Earned (lifetime income — loot, quests, vendoring) and Gold Looted (coin straight off kills and loot).
+- **Wealth** — Gold Earned (lifetime income — loot, quests, vendoring), Gold Looted (coin straight off kills and loot), and Bags Looted (containers looted off corpses and chests — never the ones you buy).
 - **Adventure** — quests completed, zones explored, and Time Alive (your `/played`, which for a hardcore character *is* your time alive).
 - **Mak'gora (account-wide)** — duels won and lost, persisting across all your characters.
 - **Mob tooltips (account-wide)** — hover a mob and see "Has hit you for up to X (at lvl Y)" if it's hurt any of your characters before. Your new character inherits the warnings.
