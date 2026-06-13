@@ -1,4 +1,4 @@
-package-as: HCStats
+package-as: HardcoreStatTracker
 
 enable-nolib-creation: no
 

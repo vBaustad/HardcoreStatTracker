@@ -1,8 +1,8 @@
-# HC Stats
+# Hardcore Stat Tracker
 
-<img src="HardcoreStats.png" alt="HC Stats logo" width="160" align="right">
+<img src="HardcoreStatTracker.png" alt="Hardcore Stat Tracker logo" width="160" align="right">
 
-**A trophy case for your hardcore character.** HC Stats quietly records your closest calls, biggest hits, toughest kills, and the rest of your run's defining moments, and shows them in a compact on-screen panel and a detailed full window. Built for **WoW Classic Era / Hardcore (1.15.x)**.
+**A trophy case for your hardcore character.** Hardcore Stat Tracker quietly records your closest calls, biggest hits, toughest kills, and the rest of your run's defining moments, and shows them in a compact on-screen panel and a detailed full window. Built for **WoW Classic Era / Hardcore (1.15.x)**.
 
 ## Features
 
@@ -21,25 +21,27 @@
 ## Installation
 
 1. Download and unzip into `World of Warcraft/_classic_era_/Interface/AddOns/`.
-2. Make sure the folder is named `HCStats` and contains the `.toc`.
+2. Make sure the folder is named `HardcoreStatTracker` and contains the `.toc`.
 3. `/reload` or restart the game.
 
 ## Usage
 
 - The mini panel appears on screen — drag it anywhere.
-- Click the `[+]` button (or `/hcstats full`) for the full window with every stat and its context.
-- `/hcstats` opens settings; `/hcstats config` jumps straight there.
+- Click the `[+]` button (or `/hst full`) for the full window with every stat and its context.
+- `/hst` opens settings; `/hst config` jumps straight there.
 
 ## Slash commands
 
-- `/hcstats` — toggle the mini panel
-- `/hcstats full` — open the full window
-- `/hcstats config` — open settings
-- `/hcstats splashes` — enter placement mode to drag the comic splashes
-- `/hcstats welcome` — show the welcome window again
-- `/hcstats reset` — clear this character's records (account-wide Mak'gora is kept)
-- `/hcstats makgora won|lost` — manually record a Mak'gora result
-- `/hcstats makgora debug` — print the raw Mak'gora system message (to refine auto-detection)
+- `/hst` — toggle the mini panel
+- `/hst full` — open the full window
+- `/hst config` — open settings
+- `/hst splashes` — enter placement mode to drag the comic splashes
+- `/hst welcome` — show the welcome window again
+- `/hst reset` — clear this character's records (account-wide Mak'gora is kept)
+- `/hst makgora won|lost` — manually record a Mak'gora result
+- `/hst makgora debug` — print the raw Mak'gora system message (to refine auto-detection)
+
+`/hcstats` and `/hc` still work as aliases for `/hst`.
 
 ## Notes
 

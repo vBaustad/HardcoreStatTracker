@@ -1,4 +1,4 @@
--- HCStats settings page: per-stat visibility plus frame show/lock.
+-- HardcoreStatTracker settings page: per-stat visibility plus frame show/lock.
 local ADDON, HC = ...
 
 local checks = {}   -- visibility checkboxes, keyed by stat key
@@ -7,8 +7,8 @@ local sliders = {}  -- value sliders
 -- "Buy me a coffee" support link. WoW can't open a browser, so clicking pops
 -- a dialog with the URL pre-selected for copying.
 local BMC_URL = "buymeacoffee.com/vbaustad"
-StaticPopupDialogs["HCSTATS_BMC"] = {
-    text = "Thanks for using HC Stats!\nCopy the link below if you'd like to buy me a coffee.",
+StaticPopupDialogs["HST_BMC"] = {
+    text = "Thanks for using Hardcore Stat Tracker!\nCopy the link below if you'd like to buy me a coffee.",
     button1 = CLOSE,
     hasEditBox = true,
     editBoxWidth = 260,
@@ -30,7 +30,7 @@ local function AddCoffeeButton(panel)
     btn:SetPoint("BOTTOMLEFT", 16, 14)
     local tex = btn:CreateTexture(nil, "ARTWORK")
     tex:SetAllPoints()
-    tex:SetTexture("Interface\\AddOns\\HCStats\\bmc-logo")
+    tex:SetTexture("Interface\\AddOns\\HardcoreStatTracker\\bmc-logo")
     tex:SetAlpha(0.65)
     local label = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("LEFT", btn, "RIGHT", 6, 0)
@@ -50,11 +50,11 @@ local function AddCoffeeButton(panel)
         label:SetText("|cff888888if you want to support|r")
         GameTooltip:Hide()
     end)
-    btn:SetScript("OnClick", function() StaticPopup_Show("HCSTATS_BMC") end)
+    btn:SetScript("OnClick", function() StaticPopup_Show("HST_BMC") end)
 end
 
 local function MakeCheck(parent, name, label, x, y, getter, setter, tooltip)
-    local cb = CreateFrame("CheckButton", "HCStatsCheck_" .. name, parent,
+    local cb = CreateFrame("CheckButton", "HardcoreStatTrackerCheck_" .. name, parent,
         "InterfaceOptionsCheckButtonTemplate")
     cb:SetPoint("TOPLEFT", x, y)
     local fs = _G[cb:GetName() .. "Text"]
@@ -68,7 +68,7 @@ local function MakeCheck(parent, name, label, x, y, getter, setter, tooltip)
 end
 
 local function MakeSlider(parent, name, x, y, lo, hi, step, fmt, getter, setter)
-    local s = CreateFrame("Slider", "HCStatsSlider_" .. name, parent, "OptionsSliderTemplate")
+    local s = CreateFrame("Slider", "HardcoreStatTrackerSlider_" .. name, parent, "OptionsSliderTemplate")
     s:SetWidth(200)
     s:SetPoint("TOPLEFT", x, y)
     s:SetMinMaxValues(lo, hi)
@@ -90,25 +90,25 @@ function HC:BuildOptions()
     if HC.panel then return end
 
     local panel = CreateFrame("Frame")
-    panel.name = "HC Stats"
+    panel.name = "Hardcore Stat Tracker"
     HC.panel = panel
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("HC Stats")
+    title:SetText("Hardcore Stat Tracker")
 
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
     sub:SetText("These toggles control the small on-screen panel (the \"mini view\") - uncheck the "
         .. "stats you'd rather not show off. The full window (the [+] button on the panel, or "
-        .. "/hcstats full) always lists every stat, grouped and with details.")
+        .. "/hst full) always lists every stat, grouped and with details.")
 
     -- Frame-level options
     MakeCheck(panel, "shown", "Show the on-screen panel", 16, -64,
         function() return HC.db and HC.db.shown end,
         function(v) HC.db.shown = v; HC:UpdateDisplay() end,
-        "Show or hide the HC Stats panel entirely.")
+        "Show or hide the Hardcore Stat Tracker panel entirely.")
     MakeCheck(panel, "locked", "Lock the panel in place", 16, -90,
         function() return HC.db and HC.db.locked end,
         function(v) HC.db.locked = v end,
@@ -163,7 +163,7 @@ function HC:BuildOptions()
     resetBtn:SetSize(160, 22)
     resetBtn:SetPoint("TOPLEFT", 16, resetY)
     resetBtn:SetText("Reset all records")
-    resetBtn:SetScript("OnClick", function() StaticPopup_Show("HCSTATS_RESET") end)
+    resetBtn:SetScript("OnClick", function() StaticPopup_Show("HST_RESET") end)
 
     local resetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     resetNote:SetPoint("LEFT", resetBtn, "RIGHT", 10, 0)
@@ -173,11 +173,11 @@ function HC:BuildOptions()
         if not HC.db then return end
         for _, cb in pairs(checks) do cb:SetChecked(cb._get() and true or false) end
         -- frame-level checks live alongside; refresh them too
-        local sh = _G["HCStatsCheck_shown"]; if sh then sh:SetChecked(HC.db.shown and true or false) end
-        local lk = _G["HCStatsCheck_locked"]; if lk then lk:SetChecked(HC.db.locked and true or false) end
-        local mt = _G["HCStatsCheck_mobtip"]; if mt then mt:SetChecked(HC.db.mobTooltip and true or false) end
-        local cp = _G["HCStatsCheck_comic"]; if cp then cp:SetChecked(HC.db.comicPops and true or false) end
-        local ct = _G["HCStatsCheck_combattimer"]; if ct then ct:SetChecked(HC.db.combatTimer ~= false) end
+        local sh = _G["HardcoreStatTrackerCheck_shown"]; if sh then sh:SetChecked(HC.db.shown and true or false) end
+        local lk = _G["HardcoreStatTrackerCheck_locked"]; if lk then lk:SetChecked(HC.db.locked and true or false) end
+        local mt = _G["HardcoreStatTrackerCheck_mobtip"]; if mt then mt:SetChecked(HC.db.mobTooltip and true or false) end
+        local cp = _G["HardcoreStatTrackerCheck_comic"]; if cp then cp:SetChecked(HC.db.comicPops and true or false) end
+        local ct = _G["HardcoreStatTrackerCheck_combattimer"]; if ct then ct:SetChecked(HC.db.combatTimer ~= false) end
         for _, s in ipairs(sliders) do
             local v = s._get()
             s:SetValue(v)
@@ -190,8 +190,8 @@ function HC:BuildOptions()
     AddCoffeeButton(panel)
 
     if Settings and Settings.RegisterCanvasLayoutCategory then
-        local cat = Settings.RegisterCanvasLayoutCategory(panel, "HC Stats")
-        cat.ID = "HCStats"
+        local cat = Settings.RegisterCanvasLayoutCategory(panel, "Hardcore Stat Tracker")
+        cat.ID = "HardcoreStatTracker"
         Settings.RegisterAddOnCategory(cat)
         HC.category = cat
     elseif InterfaceOptions_AddCategory then
@@ -220,7 +220,7 @@ function HC:BuildSplashOptions()
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
     sub:SetText("Each splash can be turned off, linked to a different record stat, and dragged to "
-        .. "a new spot on screen. The master toggle lives on the main HC Stats page.")
+        .. "a new spot on screen. The master toggle lives on the main Hardcore Stat Tracker page.")
 
     local SPLASH_LABEL = { pow = "POW!", boom = "BOOM!", zap = "ZAP!" }
     local order = { "pow", "boom", "zap" }
@@ -245,7 +245,7 @@ function HC:BuildSplashOptions()
             function(v) HC.db.comic[which].on = v end,
             "Enable or disable this splash.")
 
-        local dd = CreateFrame("Frame", "HCStatsSplashDD_" .. which, panel, "UIDropDownMenuTemplate")
+        local dd = CreateFrame("Frame", "HardcoreStatTrackerSplashDD_" .. which, panel, "UIDropDownMenuTemplate")
         dd:SetPoint("TOPLEFT", 170, y)
         UIDropDownMenu_SetWidth(dd, 180)
         UIDropDownMenu_Initialize(dd, function(_, level)
@@ -273,7 +273,7 @@ function HC:BuildSplashOptions()
 
     local posNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     posNote:SetPoint("LEFT", posBtn, "RIGHT", 10, 0)
-    posNote:SetText("Shows all three on screen - drag them, then click again to save. (/hcstats splashes)")
+    posNote:SetText("Shows all three on screen - drag them, then click again to save. (/hst splashes)")
 
     local function Refresh()
         if not (HC.db and HC.db.comic) then return end
@@ -292,7 +292,7 @@ function HC:BuildSplashOptions()
     if Settings and Settings.RegisterCanvasLayoutSubcategory and HC.category then
         Settings.RegisterCanvasLayoutSubcategory(HC.category, panel, "Splashes")
     elseif InterfaceOptions_AddCategory then
-        panel.parent = "HC Stats"
+        panel.parent = "Hardcore Stat Tracker"
         InterfaceOptions_AddCategory(panel)
     end
 end
@@ -395,7 +395,7 @@ function HC:BuildLastWordsOptions()
     box:SetBackdropColor(0, 0, 0, 0.6)
     box:SetBackdropBorderColor(0.4, 0.4, 0.4)
 
-    local sf = CreateFrame("ScrollFrame", "HCStatsLWList", box, "UIPanelScrollFrameTemplate")
+    local sf = CreateFrame("ScrollFrame", "HardcoreStatTrackerLWList", box, "UIPanelScrollFrameTemplate")
     sf:SetPoint("TOPLEFT", 8, -8)
     sf:SetPoint("BOTTOMRIGHT", -28, 8)
     local content = CreateFrame("Frame", nil, sf)
@@ -463,7 +463,7 @@ function HC:BuildLastWordsOptions()
     if Settings and Settings.RegisterCanvasLayoutSubcategory and HC.category then
         Settings.RegisterCanvasLayoutSubcategory(HC.category, panel, "Last Words")
     elseif InterfaceOptions_AddCategory then
-        panel.parent = "HC Stats"
+        panel.parent = "Hardcore Stat Tracker"
         InterfaceOptions_AddCategory(panel)
     end
 end
@@ -540,7 +540,7 @@ function HC:BuildAnnounceOptions()
     if Settings and Settings.RegisterCanvasLayoutSubcategory and HC.category then
         Settings.RegisterCanvasLayoutSubcategory(HC.category, panel, "Announcements")
     elseif InterfaceOptions_AddCategory then
-        panel.parent = "HC Stats"
+        panel.parent = "Hardcore Stat Tracker"
         InterfaceOptions_AddCategory(panel)
     end
 end

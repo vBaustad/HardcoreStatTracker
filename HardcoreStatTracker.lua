@@ -1,8 +1,8 @@
--- HCStats: a lightweight Hardcore "trophy case" of close calls and big numbers.
+-- HardcoreStatTracker: a lightweight Hardcore "trophy case" of close calls and big numbers.
 -- Per-character saved variables; everything is event-driven and cheap.
 local ADDON, HC = ...    -- HC is the addon's shared table (used by Options.lua too)
 
-local DB                 -- alias to HCStatsDB (set on login)
+local DB                 -- alias to HardcoreStatTrackerDB (set on login)
 local playerGUID
 
 -- Suppress the "Total time played" chat spam, but only for requests we make.
@@ -90,13 +90,13 @@ end
 
 -- Best-effort Mak'gora win/loss detection from the system message. The exact
 -- wording isn't documented here, so this matches loosely and there's a manual
--- fallback (/hcstats makgora won|lost) plus a capture mode (/hcstats makgora debug).
+-- fallback (/hst makgora won|lost) plus a capture mode (/hst makgora debug).
 local function OnSystemMsg(msg)
     if not HC.adb or not msg then return end
     local l = msg:lower()
     if not l:find("gora") then return end  -- mak'gora / makgora
     if HC.adb.makgoraDebug then
-        print("|cffff4444HC Stats|r |cff888888[makgora]|r " .. msg)
+        print("|cffff4444Hardcore Stat Tracker|r |cff888888[makgora]|r " .. msg)
     end
     local me = (UnitName("player") or ""):lower()
     local lost = l:find("you have lost") or l:find("you were defeated") or l:find("you have fallen")
@@ -105,11 +105,11 @@ local function OnSystemMsg(msg)
         or l:find("you are victorious") or (l:find(me .. " has won")))
     if won then
         HC.adb.makgoraWon = HC.adb.makgoraWon + 1
-        print("|cffff4444HC Stats|r: Mak'gora win recorded! (" .. HC.adb.makgoraWon .. " total)")
+        print("|cffff4444Hardcore Stat Tracker|r: Mak'gora win recorded! (" .. HC.adb.makgoraWon .. " total)")
         HC:UpdateDisplay()
     elseif lost then
         HC.adb.makgoraLost = HC.adb.makgoraLost + 1
-        print("|cffff4444HC Stats|r: Mak'gora loss recorded. (" .. HC.adb.makgoraLost .. " total)")
+        print("|cffff4444Hardcore Stat Tracker|r: Mak'gora loss recorded. (" .. HC.adb.makgoraLost .. " total)")
         HC:UpdateDisplay()
     end
 end
@@ -204,24 +204,35 @@ local LAYOUT_DEFAULTS = {
 local PANIC_THRESHOLD = 20  -- % HP that counts as a "panic moment"
 
 local function ApplyDefaults()
-    HCStatsDB = HCStatsDB or {}
+    -- One-time migration from the addon's old "HCStats" name. The old saved
+    -- variables are still declared in the .toc, so the game loads them here;
+    -- copy them over once, then clear them so they stop being written.
+    if HardcoreStatTrackerDB == nil and HCStatsDB ~= nil then
+        HardcoreStatTrackerDB = HCStatsDB
+    end
+    if HardcoreStatTrackerAccountDB == nil and HCStatsAccountDB ~= nil then
+        HardcoreStatTrackerAccountDB = HCStatsAccountDB
+    end
+    HCStatsDB, HCStatsAccountDB = nil, nil
+
+    HardcoreStatTrackerDB = HardcoreStatTrackerDB or {}
     for k, v in pairs(RECORD_DEFAULTS) do
-        if HCStatsDB[k] == nil then HCStatsDB[k] = v end
+        if HardcoreStatTrackerDB[k] == nil then HardcoreStatTrackerDB[k] = v end
     end
     for k, v in pairs(LAYOUT_DEFAULTS) do
-        if HCStatsDB[k] == nil then
-            HCStatsDB[k] = (type(v) == "table") and { unpack(v) } or v
+        if HardcoreStatTrackerDB[k] == nil then
+            HardcoreStatTrackerDB[k] = (type(v) == "table") and { unpack(v) } or v
         end
     end
-    if not HCStatsDB.show then HCStatsDB.show = {} end          -- per-stat visibility
-    if not HCStatsDB.petDeathLog then HCStatsDB.petDeathLog = {} end
-    if not HCStatsDB.partyDeathLog then HCStatsDB.partyDeathLog = {} end
-    if not HCStatsDB.zonesVisited then HCStatsDB.zonesVisited = {} end
-    if not HCStatsDB.recordStamps then HCStatsDB.recordStamps = {} end  -- [statKey] = time() of last record
+    if not HardcoreStatTrackerDB.show then HardcoreStatTrackerDB.show = {} end          -- per-stat visibility
+    if not HardcoreStatTrackerDB.petDeathLog then HardcoreStatTrackerDB.petDeathLog = {} end
+    if not HardcoreStatTrackerDB.partyDeathLog then HardcoreStatTrackerDB.partyDeathLog = {} end
+    if not HardcoreStatTrackerDB.zonesVisited then HardcoreStatTrackerDB.zonesVisited = {} end
+    if not HardcoreStatTrackerDB.recordStamps then HardcoreStatTrackerDB.recordStamps = {} end  -- [statKey] = time() of last record
 
     -- One-time smart defaults for the mini view: keep it to a tight core, and
     -- only show pet stats for pet classes. Existing user toggles are preserved.
-    if (HCStatsDB.showVersion or 0) < 1 then
+    if (HardcoreStatTrackerDB.showVersion or 0) < 1 then
         local _, class = UnitClass("player")
         local petClass = (class == "HUNTER" or class == "WARLOCK")
         local hiddenByDefault = {
@@ -230,21 +241,21 @@ local function ApplyDefaults()
             "dmgTaken", "quests", "zones", "makgoraWon", "makgoraLost",
         }
         for _, k in ipairs(hiddenByDefault) do
-            if HCStatsDB.show[k] == nil then HCStatsDB.show[k] = false end
+            if HardcoreStatTrackerDB.show[k] == nil then HardcoreStatTrackerDB.show[k] = false end
         end
         if not petClass then
-            if HCStatsDB.show.currentPet == nil then HCStatsDB.show.currentPet = false end
-            if HCStatsDB.show.petDeaths == nil then HCStatsDB.show.petDeaths = false end
+            if HardcoreStatTrackerDB.show.currentPet == nil then HardcoreStatTrackerDB.show.currentPet = false end
+            if HardcoreStatTrackerDB.show.petDeaths == nil then HardcoreStatTrackerDB.show.petDeaths = false end
         end
-        HCStatsDB.showVersion = 1
+        HardcoreStatTrackerDB.showVersion = 1
     end
-    if (HCStatsDB.showVersion or 0) < 2 then
-        if HCStatsDB.show.buffsGiven == nil then HCStatsDB.show.buffsGiven = false end
-        HCStatsDB.showVersion = 2
+    if (HardcoreStatTrackerDB.showVersion or 0) < 2 then
+        if HardcoreStatTrackerDB.show.buffsGiven == nil then HardcoreStatTrackerDB.show.buffsGiven = false end
+        HardcoreStatTrackerDB.showVersion = 2
     end
 
-    if not HCStatsDB.lastWords then HCStatsDB.lastWords = {} end
-    local lw = HCStatsDB.lastWords
+    if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
+    local lw = HardcoreStatTrackerDB.lastWords
     if lw.enabled        == nil then lw.enabled        = false end
     if lw.sayThreshold   == nil then lw.sayThreshold   = lw.threshold or 15 end
     if lw.alertThreshold == nil then lw.alertThreshold = 30 end
@@ -255,16 +266,16 @@ local function ApplyDefaults()
     if lw.custom         == nil then lw.custom         = {} end
 
     -- Comic splash config: per-splash enable, linked stat, and screen position.
-    if not HCStatsDB.comic then
-        HCStatsDB.comic = {
+    if not HardcoreStatTrackerDB.comic then
+        HardcoreStatTrackerDB.comic = {
             pow  = { on = true, stat = "highestCrit",   x =  150, y = 100 },
             boom = { on = true, stat = "biggestMelee",  x = -170, y =  90 },
             zap  = { on = true, stat = "biggestRanged", x =  160, y = -60 },
         }
     end
 
-    if not HCStatsDB.announce then HCStatsDB.announce = {} end
-    local an = HCStatsDB.announce
+    if not HardcoreStatTrackerDB.announce then HardcoreStatTrackerDB.announce = {} end
+    local an = HardcoreStatTrackerDB.announce
     if an.enabled   == nil then an.enabled   = false end
     if an.guild     == nil then an.guild     = false end
     if an.guildOnly == nil then an.guildOnly = false end
@@ -275,41 +286,41 @@ local function ApplyDefaults()
 
     -- Account-wide stats (persist across all characters). Mak'gora especially:
     -- a loss is the character's death, so it only makes sense account-wide.
-    HCStatsAccountDB = HCStatsAccountDB or {}
-    if HCStatsAccountDB.makgoraWon  == nil then HCStatsAccountDB.makgoraWon  = 0 end
-    if HCStatsAccountDB.makgoraLost == nil then HCStatsAccountDB.makgoraLost = 0 end
-    if HCStatsAccountDB.makgoraDebug == nil then HCStatsAccountDB.makgoraDebug = false end
-    if HCStatsAccountDB.mobDamage == nil then HCStatsAccountDB.mobDamage = {} end
-    HC.adb = HCStatsAccountDB
+    HardcoreStatTrackerAccountDB = HardcoreStatTrackerAccountDB or {}
+    if HardcoreStatTrackerAccountDB.makgoraWon  == nil then HardcoreStatTrackerAccountDB.makgoraWon  = 0 end
+    if HardcoreStatTrackerAccountDB.makgoraLost == nil then HardcoreStatTrackerAccountDB.makgoraLost = 0 end
+    if HardcoreStatTrackerAccountDB.makgoraDebug == nil then HardcoreStatTrackerAccountDB.makgoraDebug = false end
+    if HardcoreStatTrackerAccountDB.mobDamage == nil then HardcoreStatTrackerAccountDB.mobDamage = {} end
+    HC.adb = HardcoreStatTrackerAccountDB
 
     -- One-time migration: mob damage history used to be per-character.
-    if HCStatsDB.mobDamage then
-        for name, rec in pairs(HCStatsDB.mobDamage) do
-            local cur = HCStatsAccountDB.mobDamage[name]
+    if HardcoreStatTrackerDB.mobDamage then
+        for name, rec in pairs(HardcoreStatTrackerDB.mobDamage) do
+            local cur = HardcoreStatTrackerAccountDB.mobDamage[name]
             if not cur or (rec.hit or 0) > (cur.hit or 0) then
-                HCStatsAccountDB.mobDamage[name] = rec
+                HardcoreStatTrackerAccountDB.mobDamage[name] = rec
             end
         end
-        HCStatsDB.mobDamage = nil
+        HardcoreStatTrackerDB.mobDamage = nil
     end
 
     -- Keep the account-wide mob table bounded: prune least-recently-seen.
     local MOB_CAP, MOB_TRIM = 400, 300
     local n = 0
-    for _ in pairs(HCStatsAccountDB.mobDamage) do n = n + 1 end
+    for _ in pairs(HardcoreStatTrackerAccountDB.mobDamage) do n = n + 1 end
     if n > MOB_CAP then
         local byAge = {}
-        for name, rec in pairs(HCStatsAccountDB.mobDamage) do
+        for name, rec in pairs(HardcoreStatTrackerAccountDB.mobDamage) do
             byAge[#byAge + 1] = { name = name, seen = rec.seen or 0 }
         end
         table.sort(byAge, function(a, b) return a.seen < b.seen end)
         for i = 1, n - MOB_TRIM do
-            HCStatsAccountDB.mobDamage[byAge[i].name] = nil
+            HardcoreStatTrackerAccountDB.mobDamage[byAge[i].name] = nil
         end
     end
 
-    DB = HCStatsDB
-    HC.db = HCStatsDB    -- exposed for Options.lua
+    DB = HardcoreStatTrackerDB
+    HC.db = HardcoreStatTrackerDB    -- exposed for Options.lua
 end
 
 -- ---------------------------------------------------------------------------
@@ -357,7 +368,7 @@ end
 -- ---------------------------------------------------------------------------
 -- The display frame
 -- ---------------------------------------------------------------------------
-local frame = CreateFrame("Frame", "HCStatsFrame", UIParent, "BackdropTemplate")
+local frame = CreateFrame("Frame", "HardcoreStatTrackerFrame", UIParent, "BackdropTemplate")
 frame:SetSize(180, 120)
 frame:SetClampedToScreen(true)
 frame:SetMovable(true)
@@ -380,7 +391,7 @@ local STDFONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 
 local miniTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 miniTitle:SetPoint("TOPLEFT", 10, -7)
-miniTitle:SetText("HC Stats")
+miniTitle:SetText("Hardcore Stat Tracker")
 miniTitle:SetTextColor(1, 0.27, 0.27)
 
 local miniDivider = frame:CreateTexture(nil, "ARTWORK")
@@ -527,8 +538,8 @@ HC.STAT_HELP = {
     buffsGiven   = "Buffs you've put on other players (Fortitude, Blessings, a Battle Shout washing over the party...). One count per application per target.",
     quests       = "Quests turned in on this character.",
     zones        = "Distinct zones you've set foot in.",
-    makgoraWon   = "Mak'gora duels won - ACCOUNT-WIDE, persists across all your characters. Auto-detected from system messages; record manually with /hcstats makgora won.",
-    makgoraLost  = "Mak'gora duels lost - ACCOUNT-WIDE, your fallen characters' final duels. Record manually with /hcstats makgora lost.",
+    makgoraWon   = "Mak'gora duels won - ACCOUNT-WIDE, persists across all your characters. Auto-detected from system messages; record manually with /hst makgora won.",
+    makgoraLost  = "Mak'gora duels lost - ACCOUNT-WIDE, your fallen characters' final duels. Record manually with /hst makgora lost.",
 }
 
 function HC:UpdateDisplay()
@@ -700,7 +711,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Full-stats window (shows every stat, ignoring the mini-view toggles)
 -- ---------------------------------------------------------------------------
-local full = CreateFrame("Frame", "HCStatsFullFrame", UIParent, "BackdropTemplate")
+local full = CreateFrame("Frame", "HardcoreStatTrackerFullFrame", UIParent, "BackdropTemplate")
 full:SetSize(300, 420)
 full:SetFrameStrata("DIALOG")
 full:SetClampedToScreen(true)
@@ -717,7 +728,7 @@ full:SetBackdrop({
 full:SetBackdropColor(0.05, 0.04, 0.04, 0.97)  -- near-opaque: the world behind hurt readability
 full:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
 full:Hide()
-tinsert(UISpecialFrames, "HCStatsFullFrame")  -- Escape closes the window
+tinsert(UISpecialFrames, "HardcoreStatTrackerFullFrame")  -- Escape closes the window
 HC.fullFrame = full
 
 local function SaveFullPos()
@@ -777,7 +788,7 @@ full:SetWidth(FULL_W)
 
 local fullTitle = full:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 fullTitle:SetPoint("TOP", 0, -10)
-fullTitle:SetText("|cffff4444Hardcore Stats|r")
+fullTitle:SetText("|cffff4444Hardcore Stat Tracker|r")
 
 local fullChar = full:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 fullChar:SetPoint("TOP", 0, -30)
@@ -795,14 +806,14 @@ cfgBtn:SetScript("OnClick", function()
 end)
 
 -- Background-opacity slider, in the footer next to Settings.
-local alphaSlider = CreateFrame("Slider", "HCStatsFullAlpha", full, "OptionsSliderTemplate")
+local alphaSlider = CreateFrame("Slider", "HardcoreStatTrackerFullAlpha", full, "OptionsSliderTemplate")
 alphaSlider:SetSize(140, 16)
 alphaSlider:SetMinMaxValues(0.2, 1)
 alphaSlider:SetValueStep(0.05)
 alphaSlider:SetObeyStepOnDrag(true)
-_G["HCStatsFullAlphaLow"]:SetText("")
-_G["HCStatsFullAlphaHigh"]:SetText("")
-_G["HCStatsFullAlphaText"]:SetText("|cff888888Background|r")
+_G["HardcoreStatTrackerFullAlphaLow"]:SetText("")
+_G["HardcoreStatTrackerFullAlphaHigh"]:SetText("")
+_G["HardcoreStatTrackerFullAlphaText"]:SetText("|cff888888Background|r")
 alphaSlider:SetScript("OnValueChanged", function(_, v)
     if DB then DB.fullAlpha = v end
     full:SetBackdropColor(0.05, 0.04, 0.04, v)
@@ -1137,7 +1148,7 @@ local function GetComicFrame(which)
     f:Hide()
     f.tex = f:CreateTexture(nil, "ARTWORK")
     f.tex:SetAllPoints()
-    f.tex:SetTexture("Interface\\AddOns\\HCStats\\Media\\" .. which)
+    f.tex:SetTexture("Interface\\AddOns\\HardcoreStatTracker\\Media\\" .. which)
     f.lastPop = -99
 
     f.ag = f:CreateAnimationGroup()
@@ -1225,7 +1236,7 @@ function HC:ToggleSplashPlacement()
             f:Hide()
         end
     end
-    print("|cffff4444HC Stats|r: " .. (splashPlacement
+    print("|cffff4444Hardcore Stat Tracker|r: " .. (splashPlacement
         and "drag the splashes where you want them, then toggle placement again to save."
         or "splash positions saved."))
 end
@@ -1239,7 +1250,7 @@ function HC:ResetHitRecords()
     DB.biggestRanged, DB.biggestRangedTarget = 0, nil
     for _, f in pairs(comicFrames) do f.lastPop = -99 end
     HC:UpdateDisplay()
-    print("|cffff4444HC Stats|r: hit records reset (crit / melee / ranged). Next hit pops the splash.")
+    print("|cffff4444Hardcore Stat Tracker|r: hit records reset (crit / melee / ranged). Next hit pops the splash.")
 end
 
 function HC:RandomLastWord()
@@ -1265,7 +1276,7 @@ end
 
 function HC:DangerAlert()
     -- Custom low-health warning clip; falls back to the raid-warning sound.
-    if not PlaySoundFile("Interface\\AddOns\\HCStats\\Sounds\\Frank.ogg", "Master") then
+    if not PlaySoundFile("Interface\\AddOns\\HardcoreStatTracker\\Sounds\\Frank.ogg", "Master") then
         PlaySound(8959, "Master")
     end
     if RaidNotice_AddMessage and RaidWarningFrame and ChatTypeInfo then
@@ -1332,7 +1343,7 @@ end
 function HC:TestDanger()
     HC:TriggerDanger(true)
     if not (DB.lastWords and DB.lastWords.say) then
-        print("|cffff4444HC Stats|r: \"Announce a message in chat\" is off, so nothing was sent.")
+        print("|cffff4444Hardcore Stat Tracker|r: \"Announce a message in chat\" is off, so nothing was sent.")
     end
 end
 
@@ -1773,7 +1784,7 @@ end
 function HC:ShowWelcome()
     if HC.welcomeFrame then HC.welcomeFrame:Show(); return end
 
-    local w = CreateFrame("Frame", "HCStatsWelcome", UIParent, "BackdropTemplate")
+    local w = CreateFrame("Frame", "HardcoreStatTrackerWelcome", UIParent, "BackdropTemplate")
     w:SetSize(400, 100)  -- height set after the text lays out
     w:SetPoint("CENTER", 0, 120)
     w:SetFrameStrata("DIALOG")
@@ -1787,7 +1798,7 @@ function HC:ShowWelcome()
     })
     w:SetBackdropColor(0, 0, 0, 0.92)
     w:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
-    tinsert(UISpecialFrames, "HCStatsWelcome")  -- Escape closes
+    tinsert(UISpecialFrames, "HardcoreStatTrackerWelcome")  -- Escape closes
     HC.welcomeFrame = w
 
     local icon = w:CreateTexture(nil, "ARTWORK")
@@ -1798,7 +1809,7 @@ function HC:ShowWelcome()
 
     local title = w:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("LEFT", icon, "RIGHT", 10, 0)
-    title:SetText("|cffff4444Welcome to HC Stats|r")
+    title:SetText("|cffff4444Welcome to Hardcore Stat Tracker|r")
 
     local close = CreateFrame("Button", nil, w, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", 2, 2)
@@ -1848,8 +1859,8 @@ end
 -- ---------------------------------------------------------------------------
 -- Reset confirmation
 -- ---------------------------------------------------------------------------
-StaticPopupDialogs["HCSTATS_RESET"] = {
-    text = "Reset all HC Stats records for this character?",
+StaticPopupDialogs["HST_RESET"] = {
+    text = "Reset all Hardcore Stat Tracker records for this character?",
     button1 = YES, button2 = NO,
     OnAccept = function()
         local keep = {
@@ -1865,7 +1876,7 @@ StaticPopupDialogs["HCSTATS_RESET"] = {
         for k, v in pairs(keep) do DB[k] = v end
         ApplyDefaults()
         HC:UpdateDisplay()
-        print("|cffff4444HC Stats|r: records reset.")
+        print("|cffff4444Hardcore Stat Tracker|r: records reset.")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
 }
@@ -1873,13 +1884,14 @@ StaticPopupDialogs["HCSTATS_RESET"] = {
 -- ---------------------------------------------------------------------------
 -- Slash command
 -- ---------------------------------------------------------------------------
-SLASH_HCSTATS1 = "/hcstats"
-SLASH_HCSTATS2 = "/hc"
-SlashCmdList.HCSTATS = function(msg)
+SLASH_HST1 = "/hst"
+SLASH_HST2 = "/hcstats"   -- legacy alias
+SLASH_HST3 = "/hc"        -- legacy alias
+SlashCmdList.HST = function(msg)
     msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
     if msg == "lock" then
         DB.locked = not DB.locked
-        print("|cffff4444HC Stats|r: frame " .. (DB.locked and "locked." or "unlocked."))
+        print("|cffff4444Hardcore Stat Tracker|r: frame " .. (DB.locked and "locked." or "unlocked."))
     elseif msg == "config" or msg == "options" or msg == "settings" then
         if HC.OpenOptions then HC:OpenOptions() end
     elseif msg == "full" or msg == "all" then
@@ -1891,29 +1903,29 @@ SlashCmdList.HCSTATS = function(msg)
     elseif msg == "welcome reset" then
         DB.welcomed = nil
         HC:ShowWelcome()
-        print("|cffff4444HC Stats|r: welcome flag cleared - it will also auto-show on next login.")
+        print("|cffff4444Hardcore Stat Tracker|r: welcome flag cleared - it will also auto-show on next login.")
     elseif msg == "reset" then
-        StaticPopup_Show("HCSTATS_RESET")
+        StaticPopup_Show("HST_RESET")
     elseif msg:match("^makgora") or msg:match("^mak'gora") then
         local arg = msg:match("(%a+)%s*$")
         if arg == "won" then
             HC.adb.makgoraWon = HC.adb.makgoraWon + 1
-            print("|cffff4444HC Stats|r: Mak'gora win recorded (" .. HC.adb.makgoraWon .. " total).")
+            print("|cffff4444Hardcore Stat Tracker|r: Mak'gora win recorded (" .. HC.adb.makgoraWon .. " total).")
             HC:UpdateDisplay()
         elseif arg == "lost" then
             HC.adb.makgoraLost = HC.adb.makgoraLost + 1
-            print("|cffff4444HC Stats|r: Mak'gora loss recorded (" .. HC.adb.makgoraLost .. " total).")
+            print("|cffff4444Hardcore Stat Tracker|r: Mak'gora loss recorded (" .. HC.adb.makgoraLost .. " total).")
             HC:UpdateDisplay()
         elseif arg == "debug" then
             HC.adb.makgoraDebug = not HC.adb.makgoraDebug
-            print("|cffff4444HC Stats|r: Mak'gora message capture "
+            print("|cffff4444Hardcore Stat Tracker|r: Mak'gora message capture "
                 .. (HC.adb.makgoraDebug and "ON (watch chat during a duel, then tell the author the line)." or "OFF."))
         elseif arg == "reset" then
             HC.adb.makgoraWon, HC.adb.makgoraLost = 0, 0
-            print("|cffff4444HC Stats|r: Mak'gora tallies reset.")
+            print("|cffff4444Hardcore Stat Tracker|r: Mak'gora tallies reset.")
             HC:UpdateDisplay()
         else
-            print(("|cffff4444HC Stats|r Mak'gora - won: %d, lost: %d.  /hcstats makgora won|lost|debug|reset")
+            print(("|cffff4444Hardcore Stat Tracker|r Mak'gora - won: %d, lost: %d.  /hst makgora won|lost|debug|reset")
                 :format(HC.adb.makgoraWon, HC.adb.makgoraLost))
         end
     elseif msg == "show" then
@@ -1923,8 +1935,8 @@ SlashCmdList.HCSTATS = function(msg)
     else
         DB.shown = not DB.shown
         HC:UpdateDisplay()
-        print("|cffff4444HC Stats|r: " .. (DB.shown and "shown." or "hidden.")
-            .. "  (/hcstats lock | reset)")
+        print("|cffff4444Hardcore Stat Tracker|r: " .. (DB.shown and "shown." or "hidden.")
+            .. "  (/hst lock | reset)")
     end
 end
 
@@ -1992,7 +2004,7 @@ frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         UpdatePet()
         HC:UpdateDisplay()
         RequestPlayed()
-        print("|cffff4444HC Stats|r loaded. /hcstats to toggle, config, or hover for details.")
+        print("|cffff4444Hardcore Stat Tracker|r loaded. /hst to toggle, config, or hover for details.")
         if not DB.welcomed then
             DB.welcomed = true
             -- a few seconds late so the world has settled in first
