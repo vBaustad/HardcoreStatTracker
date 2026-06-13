@@ -372,6 +372,10 @@ function HC:BuildSplashOptions()
         function() return HC.db and HC.db.comicDuration or 2 end,
         function(v) HC.db.comicDuration = v end,
         "How long each splash stays on screen, start to finish (pop-in + hold + fade-out).")
+    masters[#masters + 1] = MakeCheck(panel, "comicrandom", "Random art on every crit", 330, -116,
+        function() return HC.db and HC.db.comicRandom end,
+        function(v) HC.db.comicRandom = v; if panel._splashRefresh then panel._splashRefresh() end end,
+        "Instead of the specific slots below, pop a RANDOM comic art on every crit (about every 2s), with a random sound. The slot settings are ignored while this is on.")
 
     -- Art options = "Off" plus every art texture.
     local ART_OPTS = { { "none", "Off" } }
@@ -463,15 +467,20 @@ function HC:BuildSplashOptions()
     local function Refresh()
         if not (HC.db and HC.db.comic) then return end
         RefreshControls(masters)
+        local randomOn = HC.db.comicRandom
         for _, e in ipairs(ddList) do
             local v = e.get()
             UIDropDownMenu_SetSelectedValue(e.dd, v)
             UIDropDownMenu_SetText(e.dd, labelOf(e.options, v))
+            -- Random mode replaces the slots, so grey them out.
+            if randomOn then UIDropDownMenu_DisableDropDown(e.dd)
+            else UIDropDownMenu_EnableDropDown(e.dd) end
         end
         for i = 1, HC.SPLASH_SLOTS do
             HC.SplashArtTexture(rows[i].preview, HC.db.comic[i].art)
         end
     end
+    panel._splashRefresh = Refresh
     panel:SetScript("OnShow", Refresh)
     Refresh()
 

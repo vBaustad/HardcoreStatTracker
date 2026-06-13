@@ -47,6 +47,7 @@ local LAYOUT_DEFAULTS = {
     scale      = 1,
     mobTooltip = true,   -- show "has hit you for X" on mob tooltips
     comicPops  = true,   -- POW/BOOM/ZAP splash on new hit records
+    comicRandom = false, -- random art on every crit (mode toggle: random vs the 6 slots)
     comicSound = false,  -- play a sound when a splash pops (opt-in)
     comicDuration = 2.0, -- seconds a splash stays on screen (incl. pop + fade)
     combatTimer = true,  -- live "In Combat" line on the mini panel

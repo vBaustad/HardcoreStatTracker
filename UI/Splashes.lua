@@ -182,27 +182,48 @@ local function GetComicFrame(slot)
     return f
 end
 
-function HC:ComicPop(slot)
-    if not HC.db or HC.db.comicPops == false or splashPlacement then return end
-    local conf = HC.db.comic and HC.db.comic[slot]
-    if not conf or conf.art == "none" then return end
-    local f = GetComicFrame(slot)
+-- Low-level: play one comic pop on frame f with the given art/position/sound,
+-- honoring a per-frame cooldown so it can't machine-gun.
+local function PopFrame(f, art, x, y, soundKey, cd)
     local now = GetTime()
-    if now - f.lastPop < 8 then return end  -- early levels set records constantly
+    if now - f.lastPop < (cd or 8) then return end
     f.lastPop = now
-    f.tex:SetTexture(MEDIA .. conf.art)
+    f.tex:SetTexture(MEDIA .. art)
     f.tex:SetRotation(math.rad(math.random(-TILT, TILT)))
     f:ClearAllPoints()
-    f:SetPoint("CENTER", UIParent, "CENTER",
-        conf.x + math.random(-30, 30), conf.y + math.random(-25, 25))
+    f:SetPoint("CENTER", UIParent, "CENTER", x, y)
     -- Hold = total show time minus the ~0.28s pop-in and 0.4s fade-out.
     f.aOut:SetStartDelay(math.max(0.1, (HC.db.comicDuration or 2) - 0.68))
     f:Show()
-    f.ag:Stop()
-    f.ag:Play()
-    f.float:Stop()
-    f.float:Play()
-    if HC.db.comicSound then HC.PlaySplashSound(conf.sound) end
+    f.ag:Stop(); f.ag:Play()
+    f.float:Stop(); f.float:Play()
+    if HC.db.comicSound and soundKey and soundKey ~= "none" then HC.PlaySplashSound(soundKey) end
+end
+
+-- Record-driven splash for a configured slot. Disabled in "random art on crit"
+-- mode, which replaces the specific slots entirely.
+function HC:ComicPop(slot)
+    if not HC.db or HC.db.comicPops == false or splashPlacement then return end
+    if HC.db.comicRandom then return end
+    local conf = HC.db.comic and HC.db.comic[slot]
+    if not conf or conf.art == "none" then return end
+    PopFrame(GetComicFrame(slot), conf.art,
+        conf.x + math.random(-30, 30), conf.y + math.random(-25, 25), conf.sound, 8)
+end
+
+-- "Random art on crit" mode: a random comic art pops on every crit (~2s
+-- cooldown), at a random spot, with a random sound. Driven from the combat log.
+local RANDOM_CD = 2
+function HC:RandomCritSplash()
+    if not HC.db or HC.db.comicPops == false or not HC.db.comicRandom or splashPlacement then return end
+    local art = HC.SPLASH_ART[math.random(#HC.SPLASH_ART)][1]
+    local sound
+    if HC.db.comicSound then
+        local pool = {}
+        for _, s in ipairs(HC.SPLASH_SOUNDS) do if s[1] ~= "none" then pool[#pool + 1] = s[1] end end
+        if #pool > 0 then sound = pool[math.random(#pool)] end
+    end
+    PopFrame(GetComicFrame(0), art, math.random(-260, 260), math.random(-150, 190), sound, RANDOM_CD)
 end
 
 -- Remember when a record was set, so the full window can flag it as "new!".

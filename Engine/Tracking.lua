@@ -437,6 +437,11 @@ function HC.OnCombatLog()
         HC:ComicEvent("highestCrit")
     end
 
+    -- "Random art on crit" splash mode fires on EVERY crit (not just records).
+    if srcGUID == HC.state.playerGUID and critical and HC.RandomCritSplash then
+        HC:RandomCritSplash()
+    end
+
     -- Biggest-hit records track NON-crit hits only; crits go to Highest Crit
     -- above, so the two never overlap. SWING = melee weapon, RANGE = ranged weapon.
     if srcGUID == HC.state.playerGUID and not critical then
