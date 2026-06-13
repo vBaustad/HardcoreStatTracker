@@ -47,8 +47,7 @@ function HC:StatData()
             { string.format("%s -> %s", HC.db.biggestSpellName, HC.db.biggestSpellTarget or "?") } }
 
     d.biggestHeal = { label = "Biggest Heal", value = Comma(HC.db.biggestHeal),
-        notes = HC.db.biggestHealSpell and
-            { string.format("%s -> %s", HC.db.biggestHealSpell, HC.db.biggestHealTarget or "?") } }
+        notes = HC.db.biggestHealSpell and { HC.db.biggestHealSpell } }
     d.healingDone = { label = "Total Healing", value = FmtShort(HC.db.healingDone) }
     local snotes, slog = {}, HC.db.playerSavedLog or {}
     for i = #slog, math.max(1, #slog - 4), -1 do
