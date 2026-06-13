@@ -12,6 +12,7 @@ HC.SPLASH_TRIGGERS = {
     { "biggestMelee",  "Biggest Melee Hit" },
     { "biggestRanged", "Biggest Ranged Hit" },
     { "biggestSpell",  "Biggest Spell Hit" },
+    { "biggestAbility","Biggest Ability Hit" },
     { "biggestHit",    "Biggest Hit Taken" },
     { "closestCall",   "Closest Call (new low)" },
     { "nearestDeath",  "Nearest Death" },

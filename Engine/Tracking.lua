@@ -413,15 +413,15 @@ function HC.OnCombatLog()
     end
 
     -- Field offsets differ between swing and spell/range damage events.
-    local amount, critical, spellName
+    local amount, critical, spellName, spellSchool
     if sub == "SWING_DAMAGE" then
         -- amount(12) ... critical(18)
         local a, _, _, _, _, _, crit = select(12, CombatLogGetCurrentEventInfo())
         amount, critical, spellName = a, crit, "Melee"
     elseif sub == "SPELL_DAMAGE" or sub == "RANGE_DAMAGE" or sub == "SPELL_PERIODIC_DAMAGE" then
-        -- spellName(13), amount(15) ... critical(21)
-        local sName, _, a, _, _, _, _, _, crit = select(13, CombatLogGetCurrentEventInfo())
-        amount, critical, spellName = a, crit, sName
+        -- spellName(13), spellSchool(14), amount(15) ... critical(21)
+        local sName, sSchool, a, _, _, _, _, _, crit = select(13, CombatLogGetCurrentEventInfo())
+        amount, critical, spellName, spellSchool = a, crit, sName, sSchool
     else
         return
     end
@@ -453,10 +453,20 @@ function HC.OnCombatLog()
             HC.db.biggestRanged, HC.db.biggestRangedTarget = amount, dstName
             changed = true
             HC:ComicEvent("biggestRanged")
-        elseif sub == "SPELL_DAMAGE" and amount > HC.db.biggestSpell then
-            HC.db.biggestSpell, HC.db.biggestSpellName, HC.db.biggestSpellTarget = amount, spellName, dstName
-            changed = true
-            HC:ComicEvent("biggestSpell")
+        elseif sub == "SPELL_DAMAGE" then
+            -- Physical-school "spells" are yellow abilities (Sinister Strike, Raptor
+            -- Strike, Aimed Shot...); any other school is a real magic spell.
+            if spellSchool == 1 then
+                if amount > HC.db.biggestAbility then
+                    HC.db.biggestAbility, HC.db.biggestAbilityName, HC.db.biggestAbilityTarget = amount, spellName, dstName
+                    changed = true
+                    HC:ComicEvent("biggestAbility")
+                end
+            elseif amount > HC.db.biggestSpell then
+                HC.db.biggestSpell, HC.db.biggestSpellName, HC.db.biggestSpellTarget = amount, spellName, dstName
+                changed = true
+                HC:ComicEvent("biggestSpell")
+            end
         end
     end
 

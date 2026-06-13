@@ -45,6 +45,9 @@ function HC:StatData()
     d.biggestSpell  = { label = "Biggest Spell Hit", value = Comma(HC.db.biggestSpell),
         notes = HC.db.biggestSpellName and
             { string.format("%s -> %s", HC.db.biggestSpellName, HC.db.biggestSpellTarget or "?") } }
+    d.biggestAbility = { label = "Biggest Ability Hit", value = Comma(HC.db.biggestAbility),
+        notes = HC.db.biggestAbilityName and
+            { string.format("%s -> %s", HC.db.biggestAbilityName, HC.db.biggestAbilityTarget or "?") } }
 
     d.biggestHeal = { label = "Biggest Heal", value = Comma(HC.db.biggestHeal),
         notes = HC.db.biggestHealSpell and { HC.db.biggestHealSpell } }
@@ -174,6 +177,7 @@ local FULL_LAYOUT = {
     { key = "biggestMelee", icon = ICON .. "INV_Sword_04" },
     { key = "biggestRanged", icon = ICON .. "INV_Weapon_Bow_07" },
     { key = "biggestSpell", icon = ICON .. "Spell_Fire_FlameBolt" },
+    { key = "biggestAbility", icon = ICON .. "Ability_Rogue_SinisterStrike" },
     { key = "killingBlows", icon = ICON .. "Ability_Rogue_Ambush" },
     { key = "longestFight", icon = ICON .. "Ability_DualWield" },
     { key = "mostDmgFight", icon = ICON .. "Spell_Fire_Fireball02" },

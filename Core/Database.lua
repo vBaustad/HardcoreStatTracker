@@ -20,6 +20,7 @@ local RECORD_DEFAULTS = {
     biggestMelee   = 0,    biggestMeleeTarget = nil,
     biggestRanged  = 0,    biggestRangedTarget = nil,
     biggestSpell   = 0,    biggestSpellName = nil, biggestSpellTarget = nil,
+    biggestAbility = 0,    biggestAbilityName = nil, biggestAbilityTarget = nil,
     biggestHeal    = 0,    biggestHealSpell = nil, biggestHealTarget = nil,
     healingDone    = 0,
     playersSaved   = 0,
@@ -147,6 +148,10 @@ function HC.ApplyDefaults()
     if (HardcoreStatTrackerDB.showVersion or 0) < 8 then
         if HardcoreStatTrackerDB.show.goldSpent == nil then HardcoreStatTrackerDB.show.goldSpent = false end
         HardcoreStatTrackerDB.showVersion = 8
+    end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 9 then
+        if HardcoreStatTrackerDB.show.biggestAbility == nil then HardcoreStatTrackerDB.show.biggestAbility = false end
+        HardcoreStatTrackerDB.showVersion = 9
     end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
@@ -291,6 +296,7 @@ local PROTECTED = {
     "highestCrit", "highestCritSpell", "highestCritTarget",
     "biggestMelee", "biggestMeleeTarget", "biggestRanged", "biggestRangedTarget",
     "biggestSpell", "biggestSpellName", "biggestSpellTarget",
+    "biggestAbility", "biggestAbilityName", "biggestAbilityTarget",
     "killingBlows", "petKillingBlows",
     "biggestHeal", "biggestHealSpell", "biggestHealTarget", "healingDone", "playersSaved",
     "petDeaths", "partyDeaths", "buffsGiven",

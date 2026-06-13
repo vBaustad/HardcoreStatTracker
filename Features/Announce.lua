@@ -32,6 +32,8 @@ HC.ANNOUNCE = {
         msg = function() return ("biggest ranged hit yet: %s"):format(Comma(HC.db.biggestRanged)) end },
     biggestSpell = { field = "biggestSpell", label = "Biggest Spell Hit",
         msg = function() return ("biggest spell hit yet: %s"):format(Comma(HC.db.biggestSpell)) end },
+    biggestAbility = { field = "biggestAbility", label = "Biggest Ability Hit",
+        msg = function() return ("biggest ability hit yet: %s"):format(Comma(HC.db.biggestAbility)) end },
     biggestHeal  = { field = "biggestHeal", label = "Biggest Heal",
         msg = function() return ("biggest heal yet: %s"):format(Comma(HC.db.biggestHeal)) end },
     playersSaved = { field = "playersSaved", label = "Player Saved",
@@ -71,7 +73,7 @@ local CLUTCH_COOLDOWN = 300  -- and at most once every 5 minutes
 HC.ANNOUNCE_ORDER = {
     "closestCall", "nearestDeath", "toughestFoe", "biggestHit", "highestCrit",
     "mostFoes", "highestFall", "untouched", "biggestMelee", "biggestRanged",
-    "biggestSpell", "playersSaved", "biggestHeal", "longestFight", "mostDmgFight",
+    "biggestSpell", "biggestAbility", "playersSaved", "biggestHeal", "longestFight", "mostDmgFight",
 }
 
 -- Two streams, queued at combat end and sent a few seconds LATER (so a chain-pull
