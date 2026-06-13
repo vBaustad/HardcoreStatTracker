@@ -9,8 +9,7 @@
 ## X-Category: Combat
 ## X-Website: https://github.com/vBaustad/HardcoreStatTracker
 ## X-License: MIT
-# After creating the CurseForge project, set the ID below and change the '#' to '##':
-# X-Curse-Project-ID: 000000
+## X-Curse-Project-ID: 1573331
 
 Core\Util.lua
 Core\Database.lua
