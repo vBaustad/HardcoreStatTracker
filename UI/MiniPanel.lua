@@ -260,7 +260,7 @@ HC.STAT_HELP = {
     buffsGiven   = "Buffs you've put on other players (Fortitude, Blessings, a Battle Shout washing over the party...). One count per application per target.",
     quests       = "Quests turned in on this character.",
     zones        = "Distinct zones you've set foot in.",
-    jumps        = "How many times you've jumped (a real jump from the ground - mid-air spam and swimming-ascend don't count). Just for fun.",
+    jumps        = "How many times you've actually jumped - confirmed you left the ground. No-op presses (stunned/casting), swimming-ascend, and falling off ledges don't count. Just for fun.",
     makgoraWon   = "Mak'gora duels won - ACCOUNT-WIDE, persists across all your characters. Auto-detected from system messages; record manually with /hst makgora won.",
     makgoraLost  = "Mak'gora duels lost - ACCOUNT-WIDE, your fallen characters' final duels. Record manually with /hst makgora lost.",
 }

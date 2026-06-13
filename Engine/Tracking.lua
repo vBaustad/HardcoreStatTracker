@@ -140,15 +140,19 @@ function HC.OnSystemMsg(msg)
     end
 end
 
--- Jumps: hook the jump key's function. Only count a real ground jump - skip
--- presses while already airborne (no-op double-taps) and while swimming (space
--- ascends in water, not a jump).
+-- Jumps: there's no "player jumped" event, so we hook the jump key, then confirm
+-- a fraction of a second later that we actually left the ground. That filters out
+-- presses that did nothing (stunned, casting, rooted) and never counts falling off
+-- a ledge (that doesn't go through the jump key). Swimming-ascend is skipped too.
 if JumpOrAscendStart then
     hooksecurefunc("JumpOrAscendStart", function()
-        if not HC.db then return end
-        if IsFalling() or IsSwimming() then return end
-        HC.db.jumps = (HC.db.jumps or 0) + 1
-        HC:UpdateDisplay()
+        if not HC.db or IsFalling() or IsSwimming() then return end
+        C_Timer.After(0.1, function()
+            if HC.db and IsFalling() then
+                HC.db.jumps = (HC.db.jumps or 0) + 1
+                HC:UpdateDisplay()
+            end
+        end)
     end)
 end
 
