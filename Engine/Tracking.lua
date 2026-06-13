@@ -437,8 +437,9 @@ function HC.OnCombatLog()
         HC:ComicEvent("highestCrit")
     end
 
-    -- Weapon auto-attacks: SWING = melee weapon, RANGE = ranged weapon.
-    if srcGUID == HC.state.playerGUID then
+    -- Biggest-hit records track NON-crit hits only; crits go to Highest Crit
+    -- above, so the two never overlap. SWING = melee weapon, RANGE = ranged weapon.
+    if srcGUID == HC.state.playerGUID and not critical then
         if sub == "SWING_DAMAGE" and amount > HC.db.biggestMelee then
             HC.db.biggestMelee, HC.db.biggestMeleeTarget = amount, dstName
             changed = true
