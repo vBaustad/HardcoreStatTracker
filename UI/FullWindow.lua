@@ -109,6 +109,7 @@ function HC:StatData()
     d.quests      = { label = "Quests Completed", value = Comma(HC.db.quests) }
     d.zones       = { label = "Zones Explored", value = Comma(HC.db.zones) }
     d.goldEarned  = { label = "Gold Earned", value = GetCoinTextureString(HC.db.goldEarned or 0) }
+    d.goldSpent   = { label = "Gold Spent", value = GetCoinTextureString(HC.db.goldSpent or 0) }
     d.goldLooted  = { label = "Gold Looted", value = GetCoinTextureString(HC.db.goldLooted or 0) }
     d.bagsLooted  = { label = "Bags Looted", value = Comma(HC.db.bagsLooted) }
     d.makgoraWon  = { label = "Mak'gora Won", value = Comma(HC.adb and HC.adb.makgoraWon) }
@@ -194,6 +195,7 @@ local FULL_LAYOUT = {
     { key = "zones",        icon = ICON .. "INV_Misc_Map_01" },
     { header = "Wealth" },
     { key = "goldEarned",   icon = ICON .. "INV_Misc_Coin_01" },
+    { key = "goldSpent",    icon = ICON .. "INV_Misc_Coin_04" },
     { key = "goldLooted",   icon = ICON .. "INV_Misc_Coin_02" },
     { key = "bagsLooted",   icon = ICON .. "INV_Misc_Bag_10" },
     { header = "Mak'gora (account-wide)" },

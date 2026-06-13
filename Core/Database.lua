@@ -33,6 +33,7 @@ local RECORD_DEFAULTS = {
     zones          = 0,
     buffsGiven     = 0,
     goldEarned     = 0,    -- lifetime income (copper); every positive money change
+    goldSpent      = 0,    -- lifetime spending (copper); every negative money change
     goldLooted     = 0,    -- coin picked up from loot only (copper)
     bagsLooted     = 0,    -- containers looted off corpses/chests (not bought)
     biggestLevelDiff = nil, biggestLevelDiffMob = nil,
@@ -142,6 +143,10 @@ function HC.ApplyDefaults()
     if (HardcoreStatTrackerDB.showVersion or 0) < 7 then
         if HardcoreStatTrackerDB.show.bagsLooted == nil then HardcoreStatTrackerDB.show.bagsLooted = false end
         HardcoreStatTrackerDB.showVersion = 7
+    end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 8 then
+        if HardcoreStatTrackerDB.show.goldSpent == nil then HardcoreStatTrackerDB.show.goldSpent = false end
+        HardcoreStatTrackerDB.showVersion = 8
     end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
@@ -289,7 +294,7 @@ local PROTECTED = {
     "killingBlows", "petKillingBlows",
     "biggestHeal", "biggestHealSpell", "biggestHealTarget", "healingDone", "playersSaved",
     "petDeaths", "partyDeaths", "buffsGiven",
-    "quests", "zones", "goldEarned", "goldLooted", "bagsLooted",
+    "quests", "zones", "goldEarned", "goldSpent", "goldLooted", "bagsLooted",
     "resets", "tamperCount", "tamperedEver",
 }
 table.sort(PROTECTED)

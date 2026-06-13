@@ -76,9 +76,14 @@ local lastMoney   -- session baseline (not saved); set on login
 function HC.OnMoney()
     if not HC.db then return end
     local m = GetMoney()
-    if lastMoney and m > lastMoney then
-        HC.db.goldEarned = (HC.db.goldEarned or 0) + (m - lastMoney)
-        HC:UpdateDisplay()
+    if lastMoney then
+        if m > lastMoney then
+            HC.db.goldEarned = (HC.db.goldEarned or 0) + (m - lastMoney)
+            HC:UpdateDisplay()
+        elseif m < lastMoney then
+            HC.db.goldSpent = (HC.db.goldSpent or 0) + (lastMoney - m)
+            HC:UpdateDisplay()
+        end
     end
     lastMoney = m
 end
