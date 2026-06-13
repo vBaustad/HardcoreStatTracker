@@ -42,6 +42,22 @@ function HC:StatData()
             { string.format("%s -> %s", HC.db.highestCritSpell, HC.db.highestCritTarget or "?") } }
     d.biggestMelee  = { label = "Biggest Melee Hit",  value = Comma(HC.db.biggestMelee) }
     d.biggestRanged = { label = "Biggest Ranged Hit", value = Comma(HC.db.biggestRanged) }
+    d.biggestSpell  = { label = "Biggest Spell Hit", value = Comma(HC.db.biggestSpell),
+        notes = HC.db.biggestSpellName and
+            { string.format("%s -> %s", HC.db.biggestSpellName, HC.db.biggestSpellTarget or "?") } }
+
+    d.biggestHeal = { label = "Biggest Heal", value = Comma(HC.db.biggestHeal),
+        notes = HC.db.biggestHealSpell and
+            { string.format("%s -> %s", HC.db.biggestHealSpell, HC.db.biggestHealTarget or "?") } }
+    d.healingDone = { label = "Total Healing", value = FmtShort(HC.db.healingDone) }
+    local snotes, slog = {}, HC.db.playerSavedLog or {}
+    for i = #slog, math.max(1, #slog - 4), -1 do
+        local p = slog[i]
+        snotes[#snotes + 1] = string.format("%s - lvl %s, %s", p.name or "?",
+            tostring(p.level or "?"), p.zone or "?")
+    end
+    d.playersSaved = { label = "Players Saved", value = Comma(HC.db.playersSaved),
+        notes = #snotes > 0 and snotes or nil }
 
     if HC.db.highestFall then
         d.highestFall = { label = "Highest Fall", value = Comma(HC.db.highestFall),
@@ -90,6 +106,8 @@ function HC:StatData()
     d.dmgTaken    = { label = "Total Damage Taken", value = FmtShort(HC.db.dmgTaken) }
     d.quests      = { label = "Quests Completed", value = Comma(HC.db.quests) }
     d.zones       = { label = "Zones Explored", value = Comma(HC.db.zones) }
+    d.goldEarned  = { label = "Gold Earned", value = GetCoinTextureString(HC.db.goldEarned or 0) }
+    d.goldLooted  = { label = "Gold Looted", value = GetCoinTextureString(HC.db.goldLooted or 0) }
     d.makgoraWon  = { label = "Mak'gora Won", value = Comma(HC.adb and HC.adb.makgoraWon) }
     d.makgoraLost = { label = "Mak'gora Lost", value = Comma(HC.adb and HC.adb.makgoraLost) }
     d.buffsGiven  = { label = "Buffs Given", value = Comma(HC.db.buffsGiven) }
@@ -152,10 +170,15 @@ local FULL_LAYOUT = {
     { key = "highestCrit",  icon = ICON .. "Ability_Rogue_Eviscerate" },
     { key = "biggestMelee", icon = ICON .. "INV_Sword_04" },
     { key = "biggestRanged", icon = ICON .. "INV_Weapon_Bow_07" },
+    { key = "biggestSpell", icon = ICON .. "Spell_Fire_FlameBolt" },
     { key = "killingBlows", icon = ICON .. "Ability_Rogue_Ambush" },
     { key = "longestFight", icon = ICON .. "Ability_DualWield" },
     { key = "mostDmgFight", icon = ICON .. "Spell_Fire_Fireball02" },
     { key = "toughestFoe",  icon = ICON .. "INV_Misc_Head_Dragon_01" },
+    { header = "Healing" },
+    { key = "biggestHeal",  icon = ICON .. "Spell_Holy_FlashHeal" },
+    { key = "healingDone",  icon = ICON .. "Spell_Holy_GreaterHeal" },
+    { key = "playersSaved", icon = ICON .. "Spell_Holy_LayOnHands" },
     { header = "Pet" },
     { key = "currentPet",   icon = ICON .. "Ability_Hunter_BeastTaming" },
     { key = "petDeaths",    icon = ICON .. "Spell_Nature_Reincarnation" },
@@ -165,6 +188,9 @@ local FULL_LAYOUT = {
     { header = "Adventure" },
     { key = "quests",       icon = ICON .. "INV_Scroll_08" },
     { key = "zones",        icon = ICON .. "INV_Misc_Map_01" },
+    { header = "Wealth" },
+    { key = "goldEarned",   icon = ICON .. "INV_Misc_Coin_01" },
+    { key = "goldLooted",   icon = ICON .. "INV_Misc_Coin_02" },
     { header = "Mak'gora (account-wide)" },
     { key = "makgoraWon",   icon = ICON .. "INV_Sword_27" },
     { key = "makgoraLost",  icon = ICON .. "Ability_Rogue_FeignDeath" },
@@ -365,6 +391,10 @@ function HC:RefreshFull()
         if name == "Mak'gora (account-wide)" then
             return HC.adb ~= nil
                 and ((HC.adb.makgoraWon or 0) > 0 or (HC.adb.makgoraLost or 0) > 0)
+        end
+        if name == "Healing" then
+            return (HC.db.healingDone or 0) > 0 or (HC.db.biggestHeal or 0) > 0
+                or (HC.db.playersSaved or 0) > 0
         end
         return true
     end

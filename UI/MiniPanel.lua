@@ -53,6 +53,40 @@ local function CreateMiniRow()
 end
 local function GetMiniRow(i) miniRows[i] = miniRows[i] or CreateMiniRow(); return miniRows[i] end
 
+-- Marching-ants highlight: a dashed gold border that animates around a row for
+-- a few seconds after it sets a new record, so a glance shows what just changed.
+local ANTS_DASH   = "Interface\\AddOns\\HardcoreStatTracker\\Media\\"
+local ANTS_TILE   = 8     -- dash texture is 8px along its run
+local ANTS_FRESH  = 15    -- seconds a new record stays highlighted
+local ANTS_SPEED  = 0.9   -- texcoord units marched per second
+local ANTS_THICK  = 2
+local ANTS_MX     = 3     -- horizontal gap between the dashed border and content
+local ANTS_MY     = 1     -- vertical gap (tighter top/bottom)
+local antsOffset  = 0
+
+local function EnsureAnts(r)
+    if r.ants then return r.ants end
+    local function mk(vert)
+        local t = r:CreateTexture(nil, "OVERLAY")
+        t:SetTexture(ANTS_DASH .. (vert and "dash_v" or "dash_h"), "REPEAT", "REPEAT")
+        t:SetVertexColor(1, 0.82, 0)
+        t:Hide()
+        return t
+    end
+    local top, bottom, left, right = mk(false), mk(false), mk(true), mk(true)
+    local MX, MY = ANTS_MX, ANTS_MY   -- push the border out so it doesn't crowd the content
+    top:SetPoint("TOPLEFT", -MX, MY);        top:SetPoint("TOPRIGHT", MX, MY);         top:SetHeight(ANTS_THICK)
+    bottom:SetPoint("BOTTOMLEFT", -MX, -MY); bottom:SetPoint("BOTTOMRIGHT", MX, -MY);  bottom:SetHeight(ANTS_THICK)
+    left:SetPoint("TOPLEFT", -MX, MY);       left:SetPoint("BOTTOMLEFT", -MX, -MY);    left:SetWidth(ANTS_THICK)
+    right:SetPoint("TOPRIGHT", MX, MY);      right:SetPoint("BOTTOMRIGHT", MX, -MY);   right:SetWidth(ANTS_THICK)
+    r.ants = { top, bottom, left, right }
+    return r.ants
+end
+
+local function HideAnts(r)
+    if r.ants then for _, t in ipairs(r.ants) do t:Hide() end end
+end
+
 -- Plain mouse-down/up movement (no RegisterForDrag, which can swallow the
 -- button-release event on some clients and leave the frame stuck to the cursor).
 local function StopDrag(self)
@@ -97,6 +131,10 @@ HC.STATS = {
     { "highestCrit",  "Highest Crit",   function() return Comma(HC.db.highestCrit) end },
     { "biggestMelee", "Biggest Melee Hit", function() return Comma(HC.db.biggestMelee) end },
     { "biggestRanged","Biggest Ranged Hit", function() return Comma(HC.db.biggestRanged) end },
+    { "biggestSpell", "Biggest Spell Hit", function() return Comma(HC.db.biggestSpell) end },
+    { "biggestHeal",  "Biggest Heal",   function() return Comma(HC.db.biggestHeal) end },
+    { "healingDone",  "Total Healing",  function() return FmtShort(HC.db.healingDone) end },
+    { "playersSaved", "Players Saved",  function() return Comma(HC.db.playersSaved) end },
     { "toughestFoe",  "Toughest Foe",   function() return HC.db.biggestLevelDiff and (FmtDiff(HC.db.biggestLevelDiff) .. " lvl") end },
     { "highestFall",  "Highest Fall",   function() return HC.db.highestFall and Comma(HC.db.highestFall) end },
     { "longestFight", "Longest Fight",  function() return FmtTime(HC.db.longestFight) end },
@@ -117,6 +155,24 @@ HC.STATS = {
     { "makgoraWon",   "Mak'gora Won",   function() return Comma(HC.adb and HC.adb.makgoraWon) end },
     { "makgoraLost",  "Mak'gora Lost",  function() return Comma(HC.adb and HC.adb.makgoraLost) end },
     { "buffsGiven",   "Buffs Given",    function() return Comma(HC.db.buffsGiven) end },
+    { "goldEarned",   "Gold Earned",    function() return GetCoinTextureString(HC.db.goldEarned or 0) end },
+    { "goldLooted",   "Gold Looted",    function() return GetCoinTextureString(HC.db.goldLooted or 0) end },
+}
+
+-- Stats grouped by category (mirrors the full window's sections). Used by the
+-- settings "Mini Panel" page to lay the visibility toggles out by theme.
+HC.STAT_GROUPS = {
+    { "Survival",  { "closestCall", "nearestDeath", "biggestHit", "highestFall", "panic",
+                     "clutchSaves", "untouched", "mostFoes", "fights", "dmgTaken" } },
+    { "Combat",    { "highestCrit", "biggestMelee", "biggestRanged", "biggestSpell",
+                     "killingBlows", "longestFight", "mostDmgFight", "toughestFoe" } },
+    { "Healing",   { "biggestHeal", "healingDone", "playersSaved" } },
+    { "Pet",       { "currentPet", "petDeaths" } },
+    { "Group",     { "partyDeaths", "buffsGiven" } },
+    { "Adventure", { "quests", "zones" } },
+    { "Wealth",    { "goldEarned", "goldLooted" } },
+    { "Mak'gora",  { "makgoraWon", "makgoraLost" } },
+    { "Character", { "timeAlive" } },
 }
 
 -- Icon per stat, shared by the mini view and the full window.
@@ -129,6 +185,12 @@ HC.ICONS = {
     highestCrit  = ICONP .. "Ability_Rogue_Eviscerate",
     biggestMelee = ICONP .. "INV_Sword_04",
     biggestRanged = ICONP .. "INV_Weapon_Bow_07",
+    biggestSpell = ICONP .. "Spell_Fire_FlameBolt",
+    biggestHeal  = ICONP .. "Spell_Holy_FlashHeal",
+    healingDone  = ICONP .. "Spell_Holy_GreaterHeal",
+    playersSaved = ICONP .. "Spell_Holy_LayOnHands",
+    goldEarned   = ICONP .. "INV_Misc_Coin_01",
+    goldLooted   = ICONP .. "INV_Misc_Coin_02",
     highestFall  = ICONP .. "Spell_Magic_FeatherFall",
     longestFight = ICONP .. "Ability_DualWield",
     mostDmgFight = ICONP .. "Spell_Fire_Fireball02",
@@ -159,6 +221,12 @@ HC.STAT_HELP = {
     highestCrit  = "Your biggest critical hit, and what it landed on.",
     biggestMelee = "Your biggest melee auto-attack hit. White swings only - abilities don't count.",
     biggestRanged = "Your biggest ranged auto-attack hit (bow, gun, or wand). Stays at 0 if you never fire one.",
+    biggestSpell = "Your biggest single direct spell hit (Fireball, Shadow Bolt, etc.). Periodic/damage-over-time ticks don't count.",
+    biggestHeal  = "Your biggest single direct heal cast, and who it landed on. Heal-over-time ticks don't count.",
+    healingDone  = "Every point of effective healing you've done, lifetime (overheal excluded).",
+    playersSaved = "Times you landed a direct heal on a party member who was critically low (20% HP or less), pulling them back from the brink. Counted once per close call.",
+    goldEarned   = "Every copper earned on this character, lifetime - loot, quest rewards, vendor sales. Spending doesn't reduce it.",
+    goldLooted   = "Coin picked up directly from kills and loot, lifetime - vendor sales and quest rewards don't count.",
     highestFall  = "The most fall damage you've survived in one landing.",
     longestFight = "Your longest single stretch of combat.",
     mostDmgFight = "The most total damage you've taken within one fight.",
@@ -202,9 +270,10 @@ function HC:UpdateDisplay()
     local y = -titleH - 4
     local idx, contentW = 0, (miniTitle:GetStringWidth() or 60) + 22
 
-    local function addRow(icon, label, value, lr, lg, lb)
+    local function addRow(icon, label, value, lr, lg, lb, statKey)
         idx = idx + 1
         local r = GetMiniRow(idx)
+        r._statKey = statKey
         r:ClearAllPoints()
         r:SetPoint("TOPLEFT", PADX, y)
         r:SetHeight(rowH)
@@ -232,7 +301,7 @@ function HC:UpdateDisplay()
         if self:Visible(s[1]) then
             local v = s[3]()
             local value = v and ("|cffffd100" .. v .. "|r") or "|cff777777--|r"
-            addRow(HC.ICONS[s[1]], s[2], value)
+            addRow(HC.ICONS[s[1]], s[2], value, nil, nil, nil, s[1])
         end
     end
 
@@ -252,6 +321,48 @@ function HC:UpdateDisplay()
     HC.frame:SetShown(HC.db.shown)
     if HC.fullFrame and HC.fullFrame:IsShown() then HC:RefreshFull() end
 end
+
+-- Drive the marching-ants highlight: scroll the dashes on any row whose stat set
+-- a record within the last ANTS_FRESH seconds. Throttled; idles when nothing fresh.
+local antsAnimator = CreateFrame("Frame", nil, HC.frame)
+local antsAccum = 0
+local antsShown = false
+antsAnimator:SetScript("OnUpdate", function(_, elapsed)
+    antsAccum = antsAccum + elapsed
+    if antsAccum < 0.03 then return end
+    local dt = antsAccum
+    antsAccum = 0
+    -- Idle fast path: nothing can be highlighted unless a record was set within
+    -- the last ANTS_FRESH seconds. Skip the per-row work entirely otherwise.
+    local on = HC.db and HC.db.miniHighlight ~= false
+        and HC.lastRecordStamp and (time() - HC.lastRecordStamp) < ANTS_FRESH
+    if not on then
+        if antsShown then
+            for _, r in ipairs(miniRows) do HideAnts(r) end
+            antsShown = false
+        end
+        return
+    end
+    antsShown = true
+    antsOffset = (antsOffset + dt * ANTS_SPEED) % 1
+    local stamps, now = HC.db.recordStamps, time()
+    for _, r in ipairs(miniRows) do
+        local stamp = r._statKey and stamps and stamps[r._statKey]
+        if r:IsShown() and stamp and (now - stamp) < ANTS_FRESH then
+            local a = EnsureAnts(r)
+            local rw = (r:GetWidth()  or 0) / ANTS_TILE
+            local rh = (r:GetHeight() or 0) / ANTS_TILE
+            a[1]:SetTexCoord( antsOffset,  antsOffset + rw, 0, 1)   -- top
+            a[2]:SetTexCoord(-antsOffset, -antsOffset + rw, 0, 1)   -- bottom
+            a[3]:SetTexCoord(0, 1, -antsOffset, -antsOffset + rh)   -- left
+            a[4]:SetTexCoord(0, 1,  antsOffset,  antsOffset + rh)   -- right
+            for _, t in ipairs(a) do t:Show() end
+        else
+            HideAnts(r)
+        end
+    end
+end)
+
 -- The [+] button on the mini frame opens the full window.
 local plus = CreateFrame("Button", nil, HC.frame)
 plus:SetSize(16, 16)

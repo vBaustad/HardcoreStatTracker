@@ -35,8 +35,15 @@ end
 
 -- Map of current groupmates' GUIDs -> names, so a UNIT_DIED can be attributed.
 local partyGUIDs = {}
+-- "Players saved" tracking: when a groupmate drops critically low, remember the
+-- moment; a direct heal you land on them shortly after counts as a save.
+local lowSince    = {}   -- [partyGUID] = GetTime() they dropped low
+local SAVE_LOW    = 20   -- % HP that marks a groupmate as in danger
+local SAVE_SAFE   = 50   -- % HP that re-arms them for a future save
+local SAVE_WINDOW = 6    -- seconds a heal still counts as a save after they dipped
 function HC.RefreshGroup()
     wipe(partyGUIDs)
+    wipe(lowSince)
     if not IsInGroup() then return end
     local prefix = IsInRaid() and "raid" or "party"
     for i = 1, 40 do
@@ -45,6 +52,44 @@ function HC.RefreshGroup()
             local g = UnitGUID(unit)
             if g then partyGUIDs[g] = UnitName(unit) end
         end
+    end
+end
+
+-- Watch a groupmate's health (party/raid UNIT_HEALTH) to arm/disarm "saves".
+function HC.OnPartyHealth(unit)
+    if not HC.db then return end
+    local guid = UnitGUID(unit)
+    if not guid then return end
+    local hp, max = UnitHealth(unit), UnitHealthMax(unit)
+    if not max or max == 0 then return end
+    local pct = hp / max * 100
+    if hp > 0 and pct <= SAVE_LOW then
+        lowSince[guid] = GetTime()
+    elseif pct >= SAVE_SAFE then
+        lowSince[guid] = nil
+    end
+end
+
+-- Gold: lifetime income (every positive money change), and coin from loot only.
+local lastMoney   -- session baseline (not saved); set on login
+function HC.OnMoney()
+    if not HC.db then return end
+    local m = GetMoney()
+    if lastMoney and m > lastMoney then
+        HC.db.goldEarned = (HC.db.goldEarned or 0) + (m - lastMoney)
+        HC:UpdateDisplay()
+    end
+    lastMoney = m
+end
+function HC.OnLootMoney(msg)
+    if not HC.db or not msg then return end   -- enUS loot strings: "You loot 1 Gold 2 Silver 3 Copper"
+    local g = tonumber(msg:match("(%d+) Gold")) or 0
+    local s = tonumber(msg:match("(%d+) Silver")) or 0
+    local c = tonumber(msg:match("(%d+) Copper")) or 0
+    local total = g * 10000 + s * 100 + c
+    if total > 0 then
+        HC.db.goldLooted = (HC.db.goldLooted or 0) + total
+        HC:UpdateDisplay()
     end
 end
 
@@ -100,21 +145,22 @@ function HC.LiveLevelTime()
 end
 
 -- rolling window of incoming damage, for "time to death" estimates
-local dmgEvents  = {}
+-- Rolling window of incoming hits, as a fixed-capacity ring buffer of parallel
+-- arrays - no per-hit table allocation and no shifting (this is a CLEU hot path).
 local DMG_WINDOW = 3       -- seconds
+local DMG_CAP    = 200     -- far more hits than one player can take in 3s
+local dmgT, dmgA = {}, {}  -- timestamps / amounts, indexed 1..DMG_CAP (ring)
+local dmgNext, dmgCount = 1, 0
 local function PushIncoming(amount)
-    dmgEvents[#dmgEvents + 1] = { t = GetTime(), amt = amount }
+    dmgT[dmgNext] = GetTime()
+    dmgA[dmgNext] = amount
+    dmgNext = dmgNext % DMG_CAP + 1
+    if dmgCount < DMG_CAP then dmgCount = dmgCount + 1 end
 end
 local function RecentDPS()
-    local now, sum, i = GetTime(), 0, 1
-    while i <= #dmgEvents do
-        local ev = dmgEvents[i]
-        if now - ev.t > DMG_WINDOW then
-            table.remove(dmgEvents, i)
-        else
-            sum = sum + ev.amt
-            i = i + 1
-        end
+    local now, sum = GetTime(), 0
+    for i = 1, dmgCount do
+        if now - dmgT[i] <= DMG_WINDOW then sum = sum + dmgA[i] end
     end
     return sum / DMG_WINDOW
 end
@@ -163,11 +209,12 @@ function HC.OnHealth()
     -- Mark this fight as a "clutch" if you dipped below the clutch threshold.
     if HC.state.inCombat and pct <= CLUTCH_THRESHOLD then fightWentLow = true end
 
-    -- Famous last words (chat) and the attention alert fire on independent
-    -- thresholds. Each: once per dip, re-arm above threshold +5, short cooldown.
+    -- Two independent low-health reactions, each: once per dip, re-arm above
+    -- threshold +5, short cooldown.
     local lw = HC.db.lastWords
-    if lw and lw.enabled then
-        if lw.say then
+    if lw then
+        -- Famous Last Words: cocky chat line (needs the FLW master + chat on).
+        if lw.enabled and lw.say then
             local th = lw.sayThreshold or 15
             if pct <= th and not lwSayArmed then
                 lwSayArmed = true
@@ -180,6 +227,7 @@ function HC.OnHealth()
                 lwSayArmed = false
             end
         end
+        -- Low-Health Alert: screen flash + sound, on its own switch.
         if lw.alertSelf then
             local th = lw.alertThreshold or 30
             if pct <= th and not lwAlertArmed then
@@ -294,6 +342,38 @@ function HC.OnCombatLog()
         return
     end
 
+    -- Healing you do: biggest heal, lifetime effective healing, and clutch "saves".
+    if sub == "SPELL_HEAL" or sub == "SPELL_PERIODIC_HEAL" then
+        if srcGUID ~= HC.state.playerGUID then return end
+        -- spellName(13), amount(15), overhealing(16)
+        local healSpell, _, healAmt, overheal = select(13, CombatLogGetCurrentEventInfo())
+        local eff = (healAmt or 0) - (overheal or 0)
+        local changedHeal = false
+        if eff > 0 then HC.db.healingDone = (HC.db.healingDone or 0) + eff; changedHeal = true end
+        local direct = (sub == "SPELL_HEAL")
+        if direct and (healAmt or 0) > HC.db.biggestHeal then
+            HC.db.biggestHeal       = healAmt
+            HC.db.biggestHealSpell  = healSpell
+            HC.db.biggestHealTarget = dstName
+            changedHeal = true
+            HC:ComicEvent("biggestHeal")
+        end
+        -- A "save": a direct heal on a party member who was critically low.
+        if direct and eff > 0 and dstGUID ~= HC.state.playerGUID and partyGUIDs[dstGUID]
+                and lowSince[dstGUID] and (GetTime() - lowSince[dstGUID] < SAVE_WINDOW) then
+            HC.db.playersSaved = (HC.db.playersSaved or 0) + 1
+            PushLog(HC.db.playerSavedLog, {
+                name = partyGUIDs[dstGUID] or dstName or "?",
+                level = UnitLevel("player"), zone = GetZoneText(),
+            })
+            lowSince[dstGUID] = nil   -- count once per close call (re-arms when they recover)
+            changedHeal = true
+            HC:ComicEvent("playersSaved")
+        end
+        if changedHeal then HC:UpdateDisplay() end
+        return
+    end
+
     -- Field offsets differ between swing and spell/range damage events.
     local amount, critical, spellName
     if sub == "SWING_DAMAGE" then
@@ -329,6 +409,10 @@ function HC.OnCombatLog()
             HC.db.biggestRanged, HC.db.biggestRangedTarget = amount, dstName
             changed = true
             HC:ComicEvent("biggestRanged")
+        elseif sub == "SPELL_DAMAGE" and amount > HC.db.biggestSpell then
+            HC.db.biggestSpell, HC.db.biggestSpellName, HC.db.biggestSpellTarget = amount, spellName, dstName
+            changed = true
+            HC:ComicEvent("biggestSpell")
         end
     end
 
@@ -370,7 +454,7 @@ function HC.OnCombatLog()
             local stretch = GetTime() - untouchedStart
             if stretch > HC.db.untouched then
                 HC.db.untouched = stretch
-                HC:StampRecord("untouched")
+                HC:ComicEvent("untouched")
             end
             untouchedStart = GetTime()
         end
@@ -402,6 +486,8 @@ function HC.OnCombatLog()
 end
 
 function HC.OnCombatStart()
+    -- Safety: never leave the mouse-grabbing splash placement frames up in a fight.
+    if HC.SetSplashPlacement then HC:SetSplashPlacement(false) end
     HC.state.inCombat    = true
     HC.state.combatStart = GetTime()
     HC.state.curFightDmg = 0
@@ -422,19 +508,19 @@ function HC.OnCombatEnd()
         if dur > HC.db.longestFight then
             HC.db.longestFight     = dur
             HC.db.longestFightZone = GetZoneText()
-            HC:StampRecord("longestFight")
+            HC:ComicEvent("longestFight")
         end
         if HC.state.curFightDmg > HC.db.mostDmgFight then
             HC.db.mostDmgFight     = HC.state.curFightDmg
             HC.db.mostDmgFightZone = GetZoneText()
-            HC:StampRecord("mostDmgFight")
+            HC:ComicEvent("mostDmgFight")
         end
         -- Untouched streak: the final stretch from last hit to combat end.
         if untouchedStart then
             local stretch = GetTime() - untouchedStart
             if stretch > HC.db.untouched then
                 HC.db.untouched = stretch
-                HC:StampRecord("untouched")
+                HC:ComicEvent("untouched")
             end
         end
         -- Clutch save: dropped low but lived through the fight.

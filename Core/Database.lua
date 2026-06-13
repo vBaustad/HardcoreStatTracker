@@ -18,6 +18,10 @@ local RECORD_DEFAULTS = {
     fights         = 0,
     biggestMelee   = 0,    biggestMeleeTarget = nil,
     biggestRanged  = 0,    biggestRangedTarget = nil,
+    biggestSpell   = 0,    biggestSpellName = nil, biggestSpellTarget = nil,
+    biggestHeal    = 0,    biggestHealSpell = nil, biggestHealTarget = nil,
+    healingDone    = 0,
+    playersSaved   = 0,
     petDeaths      = 0,
     partyDeaths    = 0,
     mostFoes       = 0,
@@ -27,6 +31,8 @@ local RECORD_DEFAULTS = {
     quests         = 0,
     zones          = 0,
     buffsGiven     = 0,
+    goldEarned     = 0,    -- lifetime income (copper); every positive money change
+    goldLooted     = 0,    -- coin picked up from loot only (copper)
     biggestLevelDiff = nil, biggestLevelDiffMob = nil,
     biggestLevelDiffMyLevel = nil, biggestLevelDiffZone = nil,
 }
@@ -38,7 +44,10 @@ local LAYOUT_DEFAULTS = {
     scale      = 1,
     mobTooltip = true,   -- show "has hit you for X" on mob tooltips
     comicPops  = true,   -- POW/BOOM/ZAP splash on new hit records
+    comicSound = false,  -- play a sound when a splash pops (opt-in)
+    comicDuration = 2.0, -- seconds a splash stays on screen (incl. pop + fade)
     combatTimer = true,  -- live "In Combat" line on the mini panel
+    miniHighlight = true,-- animated border on a mini row that just set a record
     fullAlpha  = 0.97,   -- full-window background opacity
     miniAlpha  = 0.8,    -- mini-panel background opacity
     point      = { "CENTER", "CENTER", 250, 0 },
@@ -72,6 +81,7 @@ function HC.ApplyDefaults()
     if not HardcoreStatTrackerDB.show then HardcoreStatTrackerDB.show = {} end          -- per-stat visibility
     if not HardcoreStatTrackerDB.petDeathLog then HardcoreStatTrackerDB.petDeathLog = {} end
     if not HardcoreStatTrackerDB.partyDeathLog then HardcoreStatTrackerDB.partyDeathLog = {} end
+    if not HardcoreStatTrackerDB.playerSavedLog then HardcoreStatTrackerDB.playerSavedLog = {} end
     if not HardcoreStatTrackerDB.zonesVisited then HardcoreStatTrackerDB.zonesVisited = {} end
     if not HardcoreStatTrackerDB.recordStamps then HardcoreStatTrackerDB.recordStamps = {} end  -- [statKey] = time() of last record
 
@@ -81,7 +91,7 @@ function HC.ApplyDefaults()
         local _, class = UnitClass("player")
         local petClass = (class == "HUNTER" or class == "WARLOCK")
         local hiddenByDefault = {
-            "biggestMelee", "biggestRanged", "highestFall", "longestFight", "mostDmgFight",
+            "biggestMelee", "biggestRanged", "biggestSpell", "highestFall", "longestFight", "mostDmgFight",
             "panic", "fights", "partyDeaths", "mostFoes", "clutchSaves", "untouched",
             "dmgTaken", "quests", "zones", "makgoraWon", "makgoraLost",
         }
@@ -98,6 +108,23 @@ function HC.ApplyDefaults()
         if HardcoreStatTrackerDB.show.buffsGiven == nil then HardcoreStatTrackerDB.show.buffsGiven = false end
         HardcoreStatTrackerDB.showVersion = 2
     end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 3 then
+        if HardcoreStatTrackerDB.show.biggestSpell == nil then HardcoreStatTrackerDB.show.biggestSpell = false end
+        HardcoreStatTrackerDB.showVersion = 3
+    end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 4 then
+        -- Healing stats are off by default (only casters care); opt in per stat.
+        for _, k in ipairs({ "biggestHeal", "healingDone", "playersSaved" }) do
+            if HardcoreStatTrackerDB.show[k] == nil then HardcoreStatTrackerDB.show[k] = false end
+        end
+        HardcoreStatTrackerDB.showVersion = 4
+    end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 5 then
+        for _, k in ipairs({ "goldEarned", "goldLooted" }) do
+            if HardcoreStatTrackerDB.show[k] == nil then HardcoreStatTrackerDB.show[k] = false end
+        end
+        HardcoreStatTrackerDB.showVersion = 5
+    end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
     local lw = HardcoreStatTrackerDB.lastWords
@@ -106,17 +133,55 @@ function HC.ApplyDefaults()
     if lw.alertThreshold == nil then lw.alertThreshold = 30 end
     if lw.channel        == nil then lw.channel        = "SAY" end
     if lw.say            == nil then lw.say            = true end
-    if lw.alertSelf      == nil then lw.alertSelf      = true end
+    if lw.alertSelf      == nil then lw.alertSelf      = false end
     if lw.useDefaults    == nil then lw.useDefaults    = true end
     if lw.custom         == nil then lw.custom         = {} end
+    -- The low-health alert used to be gated by the Famous Last Words master, so
+    -- it never fired unless that was on. Now it's independent; preserve effective
+    -- state once: if FLW was off, the alert was inert -> keep it off.
+    if lw.decoupledAlert == nil then
+        if not lw.enabled then lw.alertSelf = false end
+        lw.decoupledAlert = true
+    end
 
-    -- Comic splash config: per-splash enable, linked stat, and screen position.
+    -- Comic splash slots: 6 configurable entries, each { art, stat, sound, x, y }.
+    -- art = "none" disables that slot. Sounds only play when comicSound is on.
+    local SPLASH_DEFAULTS = {
+        { art = "pow",  stat = "highestCrit",   sound = "pow",  x =  150, y =  100 },
+        { art = "boom", stat = "biggestMelee",  sound = "bonk", x = -170, y =   90 },
+        { art = "zap",  stat = "biggestRanged", sound = "pew",  x =  160, y =  -60 },
+        { art = "none", stat = "biggestSpell",  sound = "none", x = -150, y =  120 },
+        { art = "none", stat = "biggestHit",    sound = "none", x =    0, y =  150 },
+        { art = "none", stat = "closestCall",   sound = "none", x =  150, y = -150 },
+    }
     if not HardcoreStatTrackerDB.comic then
+        HardcoreStatTrackerDB.comic = {}
+    elseif HardcoreStatTrackerDB.comic.pow then
+        -- Migrate the old pow/boom/zap dict into slots 1-3 (off -> art "none").
+        local old = HardcoreStatTrackerDB.comic
+        local function conv(o, defArt)
+            if not o then return nil end
+            return {
+                art   = (o.on == false) and "none" or (o.art or defArt),
+                stat  = o.stat, sound = o.sound or "none",
+                x = o.x or 0, y = o.y or 0,
+            }
+        end
         HardcoreStatTrackerDB.comic = {
-            pow  = { on = true, stat = "highestCrit",   x =  150, y = 100 },
-            boom = { on = true, stat = "biggestMelee",  x = -170, y =  90 },
-            zap  = { on = true, stat = "biggestRanged", x =  160, y = -60 },
+            conv(old.pow, "pow"), conv(old.boom, "boom"), conv(old.zap, "zap"),
         }
+    end
+    -- Ensure all 6 slots exist and have every field.
+    local comic = HardcoreStatTrackerDB.comic
+    for i = 1, 6 do
+        local d = SPLASH_DEFAULTS[i]
+        local c = comic[i]
+        if not c then c = {}; comic[i] = c end
+        if c.art   == nil then c.art   = d.art end
+        if c.stat  == nil then c.stat  = d.stat end
+        if c.sound == nil then c.sound = d.sound end
+        if c.x     == nil then c.x     = d.x end
+        if c.y     == nil then c.y     = d.y end
     end
 
     if not HardcoreStatTrackerDB.announce then HardcoreStatTrackerDB.announce = {} end

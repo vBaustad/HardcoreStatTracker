@@ -1,8 +1,7 @@
--- HardcoreStatTracker settings page: per-stat visibility plus frame show/lock.
+-- HardcoreStatTracker settings: General + Mini Panel + Splashes + Famous Last
+-- Words + Announcements canvas pages. Pure presentation; the toggles drive the
+-- same saved-variable fields the rest of the addon reads.
 local ADDON, HC = ...
-
-local checks = {}   -- visibility checkboxes, keyed by stat key
-local sliders = {}  -- value sliders
 
 -- "Buy me a coffee" support link. WoW can't open a browser, so clicking pops
 -- a dialog with the URL pre-selected for copying.
@@ -23,6 +22,81 @@ StaticPopupDialogs["HST_BMC"] = {
     EditBoxOnEscapePressed = function(self) self:GetParent():Hide() end,
     timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
 }
+
+-- ---------------------------------------------------------------------------
+-- Shared building blocks (used by every page)
+-- ---------------------------------------------------------------------------
+
+-- Attach a hover tooltip to any mouse-aware frame. HookScript so we never clobber
+-- a template's own OnEnter/OnLeave.
+local function AddTooltip(frame, title, body)
+    if not body and not title then return end
+    frame:HookScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        if title then GameTooltip:AddLine(title, 1, 0.82, 0) end
+        if body then GameTooltip:AddLine(body, 1, 1, 1, true) end
+        GameTooltip:Show()
+    end)
+    frame:HookScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
+-- Section header.
+local function MakeHeader(parent, text, x, y)
+    local h = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    h:SetPoint("TOPLEFT", x, y)
+    h:SetText("|cffffd100" .. text .. "|r")
+    return h
+end
+
+-- Checkbox with a label that is itself hoverable + clickable, plus a tooltip.
+local function MakeCheck(parent, name, label, x, y, getter, setter, tooltip, compact)
+    local cb = CreateFrame("CheckButton", "HardcoreStatTrackerCheck_" .. name, parent,
+        "InterfaceOptionsCheckButtonTemplate")
+    cb:SetPoint("TOPLEFT", x, y)
+    local fs = _G[cb:GetName() .. "Text"]
+    if fs then
+        fs:SetText(label)
+        -- Extend the click/hover area over the label - unless compact, where
+        -- tightly-packed columns would otherwise overlap each other's hit rects.
+        if not compact then cb:SetHitRectInsets(0, -(fs:GetStringWidth() + 4), 0, 0) end
+    end
+    cb._get, cb._set = getter, setter
+    cb:SetScript("OnClick", function(self) self._set(self:GetChecked() and true or false) end)
+    AddTooltip(cb, label, tooltip)
+    return cb
+end
+
+local function MakeSlider(parent, name, x, y, lo, hi, step, fmt, getter, setter, tooltip)
+    local s = CreateFrame("Slider", "HardcoreStatTrackerSlider_" .. name, parent, "OptionsSliderTemplate")
+    s:SetWidth(200)
+    s:SetPoint("TOPLEFT", x, y)
+    s:SetMinMaxValues(lo, hi)
+    s:SetValueStep(step)
+    s:SetObeyStepOnDrag(true)
+    _G[s:GetName() .. "Low"]:SetText(tostring(lo))
+    _G[s:GetName() .. "High"]:SetText(tostring(hi))
+    s._fmt, s._get = fmt, getter
+    s:SetScript("OnValueChanged", function(self, v)
+        v = math.floor(v / step + 0.5) * step
+        _G[self:GetName() .. "Text"]:SetText(fmt(v))
+        setter(v)
+    end)
+    AddTooltip(s, nil, tooltip)
+    return s
+end
+
+-- Refresh a list of checkboxes / sliders from their live getters.
+local function RefreshControls(controls)
+    for _, c in ipairs(controls) do
+        if c._fmt then            -- slider
+            local v = c._get()
+            c:SetValue(v)
+            _G[c:GetName() .. "Text"]:SetText(c._fmt(v))
+        else                      -- checkbox
+            c:SetChecked(c._get() and true or false)
+        end
+    end
+end
 
 local function AddCoffeeButton(panel)
     local btn = CreateFrame("Button", nil, panel)
@@ -53,39 +127,23 @@ local function AddCoffeeButton(panel)
     btn:SetScript("OnClick", function() StaticPopup_Show("HST_BMC") end)
 end
 
-local function MakeCheck(parent, name, label, x, y, getter, setter, tooltip)
-    local cb = CreateFrame("CheckButton", "HardcoreStatTrackerCheck_" .. name, parent,
-        "InterfaceOptionsCheckButtonTemplate")
-    cb:SetPoint("TOPLEFT", x, y)
-    local fs = _G[cb:GetName() .. "Text"]
-    if fs then fs:SetText(label) end
-    cb.tooltipText = tooltip
-    cb._get, cb._set = getter, setter
-    cb:SetScript("OnClick", function(self)
-        self._set(self:GetChecked() and true or false)
-    end)
-    return cb
+local function RegisterPage(panel, label, parent)
+    if Settings and Settings.RegisterCanvasLayoutCategory and not parent then
+        local cat = Settings.RegisterCanvasLayoutCategory(panel, label)
+        cat.ID = "HardcoreStatTracker"
+        Settings.RegisterAddOnCategory(cat)
+        HC.category = cat
+    elseif Settings and Settings.RegisterCanvasLayoutSubcategory and HC.category then
+        Settings.RegisterCanvasLayoutSubcategory(HC.category, panel, label)
+    elseif InterfaceOptions_AddCategory then
+        if parent then panel.parent = parent end
+        InterfaceOptions_AddCategory(panel)
+    end
 end
 
-local function MakeSlider(parent, name, x, y, lo, hi, step, fmt, getter, setter)
-    local s = CreateFrame("Slider", "HardcoreStatTrackerSlider_" .. name, parent, "OptionsSliderTemplate")
-    s:SetWidth(200)
-    s:SetPoint("TOPLEFT", x, y)
-    s:SetMinMaxValues(lo, hi)
-    s:SetValueStep(step)
-    s:SetObeyStepOnDrag(true)
-    _G[s:GetName() .. "Low"]:SetText(tostring(lo))
-    _G[s:GetName() .. "High"]:SetText(tostring(hi))
-    s._fmt, s._get = fmt, getter
-    s:SetScript("OnValueChanged", function(self, v)
-        v = math.floor(v / step + 0.5) * step
-        _G[self:GetName() .. "Text"]:SetText(fmt(v))
-        setter(v)
-    end)
-    sliders[#sliders + 1] = s
-    return s
-end
-
+-- ---------------------------------------------------------------------------
+-- Main page: panel appearance + on-screen behaviour
+-- ---------------------------------------------------------------------------
 function HC:BuildOptions()
     if HC.panel then return end
 
@@ -100,111 +158,172 @@ function HC:BuildOptions()
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
-    sub:SetText("These toggles control the small on-screen panel (the \"mini view\") - uncheck the "
-        .. "stats you'd rather not show off. The full window (the [+] button on the panel, or "
-        .. "/hst full) always lists every stat, grouped and with details.")
+    sub:SetText("This page controls the on-screen panel. Use the sub-pages on the left for which "
+        .. "stats it shows (Mini Panel), comic splashes, famous last words, and announcements. "
+        .. "Hover any option for details.")
 
-    -- Frame-level options
-    MakeCheck(panel, "shown", "Show the on-screen panel", 16, -64,
+    local controls = {}
+    local function chk(...) local cb = MakeCheck(panel, ...); controls[#controls + 1] = cb; return cb end
+    local function sld(...) local s = MakeSlider(panel, ...); controls[#controls + 1] = s; return s end
+
+    -- Panel section -----------------------------------------------------------
+    MakeHeader(panel, "Panel", 16, -78)
+    chk("shown", "Show the on-screen panel", 16, -100,
         function() return HC.db and HC.db.shown end,
         function(v) HC.db.shown = v; HC:UpdateDisplay() end,
-        "Show or hide the Hardcore Stat Tracker panel entirely.")
-    MakeCheck(panel, "locked", "Lock the panel in place", 16, -90,
+        "Show or hide the mini panel entirely. (Slash: /hst)")
+    chk("locked", "Lock the panel in place", 16, -124,
         function() return HC.db and HC.db.locked end,
         function(v) HC.db.locked = v end,
-        "Prevent dragging the panel by accident.")
-    MakeCheck(panel, "mobtip", "Show mob damage history on tooltips", 16, -116,
-        function() return HC.db and HC.db.mobTooltip end,
-        function(v) HC.db.mobTooltip = v end,
-        "Adds \"Has hit you for up to X\" to the tooltip of mobs that have hurt you before.")
-    MakeCheck(panel, "comic", "Comic splash on new hit records (POW!)", 16, -142,
-        function() return HC.db and HC.db.comicPops end,
-        function(v) HC.db.comicPops = v end,
-        "Pops a comic-book POW/BOOM/ZAP on screen when you set a new record crit, melee hit, or ranged hit.")
-    MakeCheck(panel, "combattimer", "Show the in-combat timer line", 16, -168,
-        function() return HC.db and HC.db.combatTimer ~= false end,
-        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
-        "The live \"In Combat\" line on the mini panel showing fight time and damage taken.")
+        "Stops the panel from being dragged by accident. Unlock to reposition it.")
 
-    -- Mini-panel sizing/appearance sliders (right side of the top area)
-    MakeSlider(panel, "font", 320, -70, 9, 20, 1,
-        function(v) return "Mini-view text size: " .. v end,
-        function() return HC.db and HC.db.fontSize or 12 end,
-        function(v) HC.db.fontSize = v; HC:UpdateDisplay() end)
-    MakeSlider(panel, "scale", 320, -106, 0.7, 2.0, 0.1,
+    sld("scale", 320, -100, 0.7, 2.0, 0.1,
         function(v) return ("Panel scale: %.1f"):format(v) end,
         function() return HC.db and HC.db.scale or 1 end,
-        function(v) HC.db.scale = v; HC:UpdateDisplay() end)
-    MakeSlider(panel, "miniopacity", 320, -142, 0.2, 1.0, 0.05,
-        function(v) return ("Mini-view opacity: %.0f%%"):format(v * 100) end,
+        function(v) HC.db.scale = v; HC:UpdateDisplay() end,
+        "Overall size of the mini panel.")
+    sld("font", 320, -140, 9, 20, 1,
+        function(v) return "Text size: " .. v end,
+        function() return HC.db and HC.db.fontSize or 12 end,
+        function(v) HC.db.fontSize = v; HC:UpdateDisplay() end,
+        "Font size of the rows on the mini panel.")
+    sld("miniopacity", 320, -180, 0.2, 1.0, 0.05,
+        function(v) return ("Background opacity: %.0f%%"):format(v * 100) end,
         function() return HC.db and HC.db.miniAlpha or 0.8 end,
-        function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end)
+        function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end,
+        "How solid the mini panel's dark background is.")
 
-    local hdr = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    hdr:SetPoint("TOPLEFT", 16, -200)
-    hdr:SetText("Stats to display")
+    -- On screen section --------------------------------------------------------
+    MakeHeader(panel, "On screen", 16, -218)
+    chk("combattimer", "Show in-combat timer", 16, -240,
+        function() return HC.db and HC.db.combatTimer ~= false end,
+        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
+        "Adds a live \"In Combat\" line to the panel during a fight, showing fight time and damage taken.")
+    chk("minihighlight", "Highlight new records on the panel", 16, -264,
+        function() return HC.db and HC.db.miniHighlight ~= false end,
+        function(v) HC.db.miniHighlight = v end,
+        "Animate a dashed gold border around a panel row for a few seconds after it sets a new record.")
+    chk("mobtip", "Show mob damage history on tooltips", 16, -288,
+        function() return HC.db and HC.db.mobTooltip end,
+        function(v) HC.db.mobTooltip = v end,
+        "Adds \"Has hit you for up to X\" to the tooltip of any mob that has hurt one of your characters before.")
 
-    -- Three columns of per-stat visibility toggles, driven by HC.STATS order.
-    local startY, rowH, colW, cols = -222, 23, 190, 3
-    local perCol = math.ceil(#HC.STATS / cols)
-    for i, s in ipairs(HC.STATS) do
-        local key, label = s[1], s[2]
-        local col = math.floor((i - 1) / perCol)
-        local row = (i - 1) % perCol
-        local cb = MakeCheck(panel, key, label, 16 + col * colW, startY - row * rowH,
-            function() return HC:Visible(key) end,
-            function(v) HC:SetVisible(key, v) end)
-        checks[key] = cb
-    end
-
-    -- Reset lives here (a deliberate spot), not on the stats window.
-    local resetY = startY - perCol * rowH - 16
+    -- Footer: reset + support --------------------------------------------------
     local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     resetBtn:SetSize(160, 22)
-    resetBtn:SetPoint("TOPLEFT", 16, resetY)
+    resetBtn:SetPoint("TOPLEFT", 16, -328)
     resetBtn:SetText("Reset all records")
     resetBtn:SetScript("OnClick", function() StaticPopup_Show("HST_RESET") end)
+    AddTooltip(resetBtn, "Reset all records",
+        "Clears every record for this character. Time Alive and account-wide Mak'gora are kept. Asks first.")
 
     local resetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     resetNote:SetPoint("LEFT", resetBtn, "RIGHT", 10, 0)
-    resetNote:SetText("Clears every record for this character (keeps Time Alive). Asks first.")
+    resetNote:SetText("Clears this character's records (keeps Time Alive). Asks first.")
 
-    local function Refresh()
-        if not HC.db then return end
-        for _, cb in pairs(checks) do cb:SetChecked(cb._get() and true or false) end
-        -- frame-level checks live alongside; refresh them too
-        local sh = _G["HardcoreStatTrackerCheck_shown"]; if sh then sh:SetChecked(HC.db.shown and true or false) end
-        local lk = _G["HardcoreStatTrackerCheck_locked"]; if lk then lk:SetChecked(HC.db.locked and true or false) end
-        local mt = _G["HardcoreStatTrackerCheck_mobtip"]; if mt then mt:SetChecked(HC.db.mobTooltip and true or false) end
-        local cp = _G["HardcoreStatTrackerCheck_comic"]; if cp then cp:SetChecked(HC.db.comicPops and true or false) end
-        local ct = _G["HardcoreStatTrackerCheck_combattimer"]; if ct then ct:SetChecked(HC.db.combatTimer ~= false) end
-        for _, s in ipairs(sliders) do
-            local v = s._get()
-            s:SetValue(v)
-            _G[s:GetName() .. "Text"]:SetText(s._fmt(v))
-        end
-    end
+    local function Refresh() if HC.db then RefreshControls(controls) end end
     panel:SetScript("OnShow", Refresh)
     Refresh()
 
     AddCoffeeButton(panel)
+    RegisterPage(panel, "Hardcore Stat Tracker")
 
-    if Settings and Settings.RegisterCanvasLayoutCategory then
-        local cat = Settings.RegisterCanvasLayoutCategory(panel, "Hardcore Stat Tracker")
-        cat.ID = "HardcoreStatTracker"
-        Settings.RegisterAddOnCategory(cat)
-        HC.category = cat
-    elseif InterfaceOptions_AddCategory then
-        InterfaceOptions_AddCategory(panel)
-    end
-
-    HC:BuildLastWordsOptions()
-    HC:BuildAnnounceOptions()
+    -- Sub-pages, in display order.
+    HC:BuildStatsOptions()
     HC:BuildSplashOptions()
+    HC:BuildLastWordsOptions()
+    HC:BuildAlertOptions()
+    HC:BuildAnnounceOptions()
 end
 
 -- ---------------------------------------------------------------------------
--- "Splashes" subpanel: per-splash enable, trigger stat, and drag positioning
+-- "Mini Panel" sub-page: which stats show, grouped by category
+-- ---------------------------------------------------------------------------
+function HC:BuildStatsOptions()
+    if HC.statsPanel then return end
+    local panel = CreateFrame("Frame")
+    panel.name = "Mini Panel"
+    HC.statsPanel = panel
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("Mini Panel - stats to show")
+
+    local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    sub:SetWidth(560); sub:SetJustifyH("LEFT")
+    sub:SetText("Pick which stats appear on the small on-screen panel. The full window (the [+] "
+        .. "button on the panel, or /hst full) always lists every stat. Hover a checkbox for what it tracks.")
+
+    -- key -> settings label, and title -> keys, from the master stat list.
+    local labelOf, keysOf = {}, {}
+    for _, s in ipairs(HC.STATS) do labelOf[s[1]] = s[2] end
+    for _, g in ipairs(HC.STAT_GROUPS) do keysOf[g[1]] = g[2] end
+
+    local controls = {}
+
+    -- Render one category (header + stats in 3 aligned columns) into parent at y;
+    -- returns the next y below it.
+    local function renderCategory(parent, gtitle, y)
+        MakeHeader(parent, gtitle, 16, y)
+        y = y - 22
+        local keys = keysOf[gtitle] or {}
+        for i, key in ipairs(keys) do
+            local col = (i - 1) % 3
+            local row = math.floor((i - 1) / 3)
+            controls[#controls + 1] = MakeCheck(parent, key, labelOf[key] or key,
+                16 + col * 188, y - row * 22,
+                function() return HC:Visible(key) end,
+                function(v) HC:SetVisible(key, v) end,
+                HC.STAT_HELP[key])
+        end
+        return y - math.ceil(#keys / 3) * 22 - 10
+    end
+
+    -- Tabs keep each section short and aligned instead of one giant column.
+    local TABS = {
+        { "Survival",        { "Survival" } },
+        { "Combat & Healing", { "Combat", "Healing" } },
+        { "World & Wealth",  { "Pet", "Group", "Adventure", "Wealth", "Mak'gora", "Character" } },
+    }
+    local containers, tabBtns = {}, {}
+    local function ShowTab(active)
+        for i, c in ipairs(containers) do c:SetShown(i == active) end
+        for i, b in ipairs(tabBtns) do
+            if i == active then b:Disable() else b:Enable() end
+        end
+    end
+
+    local bx = 16
+    for i, t in ipairs(TABS) do
+        local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+        b:SetSize(150, 22)
+        b:SetPoint("TOPLEFT", bx, -72)
+        b:SetText(t[1])
+        b:SetScript("OnClick", function() ShowTab(i) end)
+        tabBtns[i] = b
+        bx = bx + 154
+
+        local c = CreateFrame("Frame", nil, panel)
+        c:SetPoint("TOPLEFT"); c:SetPoint("BOTTOMRIGHT")
+        containers[i] = c
+        local y = -104
+        for _, gtitle in ipairs(t[2]) do
+            y = renderCategory(c, gtitle, y)
+        end
+    end
+
+    local function Refresh() if HC.db then RefreshControls(controls) end end
+    panel:SetScript("OnShow", Refresh)
+    Refresh()
+    ShowTab(1)
+
+    RegisterPage(panel, "Mini Panel", "Hardcore Stat Tracker")
+end
+
+-- ---------------------------------------------------------------------------
+-- "Splashes" sub-page: master toggles + a 6-slot table (art / trigger / sound)
+-- with live art previews, plus Position / Lock placement controls.
 -- ---------------------------------------------------------------------------
 function HC:BuildSplashOptions()
     if HC.splashPanel then return end
@@ -219,91 +338,140 @@ function HC:BuildSplashOptions()
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
-    sub:SetText("Each splash can be turned off, linked to a different record stat, and dragged to "
-        .. "a new spot on screen. The master toggle lives on the main Hardcore Stat Tracker page.")
+    sub:SetText("Up to six splashes can pop on screen when you set a record. For each slot pick its "
+        .. "art (or Off to disable it), the record that triggers it, and an optional sound - then use "
+        .. "Position to drag them where you want.")
 
-    local SPLASH_LABEL = { pow = "POW!", boom = "BOOM!", zap = "ZAP!" }
-    local order = { "pow", "boom", "zap" }
-    local cbs, dds = {}, {}
+    local masters = {}
+    local ddList = {}        -- { dd, options, get } for refresh
+    local rows = {}          -- [i] = { preview } for refresh
 
-    local function labelFor(statKey)
-        for _, opt in ipairs(HC.SPLASH_TRIGGERS) do
-            if opt[1] == statKey then return opt[2] end
-        end
-        return statKey or "?"
+    masters[#masters + 1] = MakeCheck(panel, "comicpops", "Show comic splashes (master)", 16, -74,
+        function() return HC.db and HC.db.comicPops end,
+        function(v) HC.db.comicPops = v end,
+        "Master switch for the whole feature. Off = nothing pops, whatever the slots below say.")
+    masters[#masters + 1] = MakeCheck(panel, "comicsound", "Play a sound when a splash pops", 16, -98,
+        function() return HC.db and HC.db.comicSound end,
+        function(v) HC.db.comicSound = v end,
+        "Also play each slot's chosen sound when it pops. Sounds stay silent until this is on.")
+    masters[#masters + 1] = MakeSlider(panel, "comicdur", 330, -84, 1, 6, 0.5,
+        function(v) return ("Show for: %.1fs"):format(v) end,
+        function() return HC.db and HC.db.comicDuration or 2 end,
+        function(v) HC.db.comicDuration = v end,
+        "How long each splash stays on screen, start to finish (pop-in + hold + fade-out).")
+
+    -- Art options = "Off" plus every art texture.
+    local ART_OPTS = { { "none", "Off" } }
+    for _, o in ipairs(HC.SPLASH_ART) do ART_OPTS[#ART_OPTS + 1] = o end
+
+    local function labelOf(options, value)
+        for _, opt in ipairs(options) do if opt[1] == value then return opt[2] end end
+        return value or "?"
     end
 
-    for i, which in ipairs(order) do
-        local y = -70 - (i - 1) * 46
-
-        local name = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-        name:SetPoint("TOPLEFT", 16, y - 8)
-        name:SetText(SPLASH_LABEL[which])
-
-        cbs[which] = MakeCheck(panel, "splash_" .. which, "Show", 96, y - 2,
-            function() return HC.db and HC.db.comic[which].on end,
-            function(v) HC.db.comic[which].on = v end,
-            "Enable or disable this splash.")
-
-        local dd = CreateFrame("Frame", "HardcoreStatTrackerSplashDD_" .. which, panel, "UIDropDownMenuTemplate")
-        dd:SetPoint("TOPLEFT", 170, y)
-        UIDropDownMenu_SetWidth(dd, 180)
+    local function MakeDD(suffix, ddX, ddY, width, options, getV, setV, onPick)
+        local dd = CreateFrame("Frame", "HardcoreStatTrackerSplashDD_" .. suffix, panel, "UIDropDownMenuTemplate")
+        dd:SetPoint("TOPLEFT", ddX, ddY)
+        UIDropDownMenu_SetWidth(dd, width)
         UIDropDownMenu_Initialize(dd, function(_, level)
-            for _, opt in ipairs(HC.SPLASH_TRIGGERS) do
+            for _, opt in ipairs(options) do
                 local info = UIDropDownMenu_CreateInfo()
-                info.text = opt[2]
-                info.value = opt[1]
+                info.text, info.value = opt[2], opt[1]
                 info.func = function(btn)
-                    HC.db.comic[which].stat = btn.value
+                    setV(btn.value)
                     UIDropDownMenu_SetSelectedValue(dd, btn.value)
                     UIDropDownMenu_SetText(dd, opt[2])
+                    if onPick then onPick(btn.value) end
                 end
-                info.checked = (HC.db.comic[which].stat == opt[1])
+                info.checked = (getV() == opt[1])
                 UIDropDownMenu_AddButton(info, level)
             end
         end)
-        dds[which] = dd
+        ddList[#ddList + 1] = { dd = dd, options = options, get = getV }
+        return dd
+    end
+
+    -- Column captions.
+    local function cap(text, x, y)
+        local f = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        f:SetPoint("TOPLEFT", x, y); f:SetText("|cffffd100" .. text .. "|r")
+    end
+    cap("Art",         52, -132)
+    cap("Triggers on", 196, -132)
+    cap("Sound",       380, -132)
+
+    for i = 1, HC.SPLASH_SLOTS do
+        local baseY = -150 - (i - 1) * 38
+        local function slot() return HC.db.comic[i] end
+
+        local artDD = MakeDD("art_" .. i, 72, baseY, 64, ART_OPTS,
+            function() return slot().art end,
+            function(v) slot().art = v end,
+            function(v) HC.SplashArtTexture(rows[i].preview, v) end)
+
+        -- Slot number + live art thumbnail, anchored to the art dropdown.
+        local preview = panel:CreateTexture(nil, "ARTWORK")
+        preview:SetSize(26, 26)
+        preview:SetPoint("RIGHT", artDD, "LEFT", 4, 2)
+        local num = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+        num:SetPoint("RIGHT", preview, "LEFT", -2, 0)
+        num:SetText(i .. ".")
+        rows[i] = { preview = preview }
+
+        MakeDD("trigger_" .. i, 185, baseY, 145, HC.SPLASH_TRIGGERS,
+            function() return slot().stat end,
+            function(v) slot().stat = v end)
+
+        MakeDD("sound_" .. i, 366, baseY, 95, HC.SPLASH_SOUNDS,
+            function() return slot().sound end,
+            function(v) slot().sound = v end,
+            function(v) HC.PlaySplashSound(v) end)
     end
 
     local posBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    posBtn:SetSize(170, 22)
-    posBtn:SetPoint("TOPLEFT", 16, -224)
+    posBtn:SetSize(150, 22)
+    posBtn:SetPoint("TOPLEFT", 16, -390)
     posBtn:SetText("Position splashes")
-    posBtn:SetScript("OnClick", function() HC:ToggleSplashPlacement() end)
+    posBtn:SetScript("OnClick", function() HC:SetSplashPlacement(true) end)
+    AddTooltip(posBtn, "Position splashes",
+        "Show every active splash on screen (green overlay, dashed border) so you can drag each one into place.")
+
+    local lockBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    lockBtn:SetSize(90, 22)
+    lockBtn:SetPoint("LEFT", posBtn, "RIGHT", 8, 0)
+    lockBtn:SetText("Lock")
+    lockBtn:SetScript("OnClick", function() HC:SetSplashPlacement(false) end)
+    AddTooltip(lockBtn, "Lock", "Stop positioning and save where the splashes are.")
 
     local posNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    posNote:SetPoint("LEFT", posBtn, "RIGHT", 10, 0)
-    posNote:SetText("Shows all three on screen - drag them, then click again to save. (/hst splashes)")
+    posNote:SetPoint("TOPLEFT", 16, -420)
+    posNote:SetText("Position to drag, Lock to save. (also /hst splashes)")
 
     local function Refresh()
         if not (HC.db and HC.db.comic) then return end
-        for which, cb in pairs(cbs) do
-            cb:SetChecked(HC.db.comic[which].on and true or false)
+        RefreshControls(masters)
+        for _, e in ipairs(ddList) do
+            local v = e.get()
+            UIDropDownMenu_SetSelectedValue(e.dd, v)
+            UIDropDownMenu_SetText(e.dd, labelOf(e.options, v))
         end
-        for which, dd in pairs(dds) do
-            local statKey = HC.db.comic[which].stat
-            UIDropDownMenu_SetSelectedValue(dd, statKey)
-            UIDropDownMenu_SetText(dd, labelFor(statKey))
+        for i = 1, HC.SPLASH_SLOTS do
+            HC.SplashArtTexture(rows[i].preview, HC.db.comic[i].art)
         end
     end
     panel:SetScript("OnShow", Refresh)
     Refresh()
 
-    if Settings and Settings.RegisterCanvasLayoutSubcategory and HC.category then
-        Settings.RegisterCanvasLayoutSubcategory(HC.category, panel, "Splashes")
-    elseif InterfaceOptions_AddCategory then
-        panel.parent = "Hardcore Stat Tracker"
-        InterfaceOptions_AddCategory(panel)
-    end
+    RegisterPage(panel, "Splashes", "Hardcore Stat Tracker")
 end
 
 -- ---------------------------------------------------------------------------
--- "Famous Last Words" subpanel
+-- "Famous Last Words" sub-page
 -- ---------------------------------------------------------------------------
 function HC:BuildLastWordsOptions()
     if HC.lwPanel then return end
     local panel = CreateFrame("Frame")
-    panel.name = "Last Words"
+    panel.name = "Famous Last Words"
     HC.lwPanel = panel
 
     local function LW() return HC.db.lastWords end
@@ -315,24 +483,20 @@ function HC:BuildLastWordsOptions()
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
-    sub:SetText("Two independent low-health reactions: a random line broadcast in chat (your "
-        .. "famous last words) and an attention-grabbing flash + sound - each with its own "
-        .. "trigger %. |cffff8080The chat line auto-types in /say, so use it tastefully.|r")
+    sub:SetText("When your health drops low, broadcast a random cocky/ironic line to chat - your "
+        .. "famous last words. |cffff8080The line auto-types in /say, so use it tastefully.|r  "
+        .. "(The screen flash + sound warning is now its own page: Low-Health Alert.)")
 
-    local lwChecks = {}
+    local controls = {}
     local function add(name, label, x, y, get, set, tip)
         local cb = MakeCheck(panel, name, label, x, y, get, set, tip)
-        lwChecks[#lwChecks + 1] = cb
+        controls[#controls + 1] = cb
         return cb
     end
 
-    -- The subtitle wraps to ~3 lines and spans both columns, so all content
-    -- starts below it (y = -100).
     add("lw_enabled", "Enable Famous Last Words", 16, -100,
         function() return LW().enabled end, function(v) LW().enabled = v end,
-        "Master switch for the low-health announcement and alert.")
-
-    -- Chat announcement + its own threshold
+        "Master switch for the low-health chat line.")
     add("lw_say", "Announce a message in chat", 16, -130,
         function() return LW().say end, function(v) LW().say = v end,
         "Broadcast a random line to chat when you drop low.")
@@ -343,28 +507,20 @@ function HC:BuildLastWordsOptions()
     local sayThr = MakeSlider(panel, "lwsaythr", 40, -192, 5, 60, 1,
         function(v) return "Announce at or below: " .. v .. "%" end,
         function() return LW().sayThreshold or 15 end,
-        function(v) LW().sayThreshold = v end)
+        function(v) LW().sayThreshold = v end,
+        "Health % at which the chat line fires.")
+    controls[#controls + 1] = sayThr
 
-    -- Attention alert + its own (usually higher) threshold
-    add("lw_alertSelf", "Alert me (screen flash + sound)", 16, -234,
-        function() return LW().alertSelf end, function(v) LW().alertSelf = v end,
-        "Flash a red low-health vignette and play a warning sound - an attention "
-        .. "grab if you weren't watching your health.")
-    local alertThr = MakeSlider(panel, "lwalertthr", 40, -272, 5, 60, 1,
-        function(v) return "Alert at or below: " .. v .. "%" end,
-        function() return LW().alertThreshold or 30 end,
-        function(v) LW().alertThreshold = v end)
-
-    add("lw_useDefaults", "Include the built-in messages (a surprise pool)", 16, -310,
+    add("lw_useDefaults", "Include the built-in messages (a surprise pool)", 16, -234,
         function() return LW().useDefaults end, function(v) LW().useDefaults = v end,
-        "Mixes the addon's hidden built-in lines in with yours (50/50). "
-        .. "Uncheck to broadcast ONLY your own messages.")
+        "Mixes the addon's hidden built-in lines in with yours (50/50). Uncheck to broadcast ONLY your own messages.")
 
     local testBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     testBtn:SetSize(90, 22)
-    testBtn:SetPoint("TOPLEFT", 16, -346)
+    testBtn:SetPoint("TOPLEFT", 16, -270)
     testBtn:SetText("Test")
-    testBtn:SetScript("OnClick", function() if HC.TestDanger then HC:TestDanger() end end)
+    testBtn:SetScript("OnClick", function() if HC.TestLastWords then HC:TestLastWords() end end)
+    AddTooltip(testBtn, "Test", "Send a sample line to chat right now, as a preview.")
 
     -- Custom-messages editor (right column): add box + removable list.
     local cmLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -449,27 +605,67 @@ function HC:BuildLastWordsOptions()
 
     local function lwRefresh()
         if not HC.db then return end
-        for _, cb in ipairs(lwChecks) do cb:SetChecked(cb._get() and true or false) end
-        for _, s in ipairs({ sayThr, alertThr }) do
-            local v = s._get()
-            s:SetValue(v)
-            _G[s:GetName() .. "Text"]:SetText(s._fmt(v))
-        end
+        RefreshControls(controls)
         RenderList()
     end
     panel:SetScript("OnShow", lwRefresh)
     lwRefresh()  -- initial populate, in case OnShow is unreliable on first open
 
-    if Settings and Settings.RegisterCanvasLayoutSubcategory and HC.category then
-        Settings.RegisterCanvasLayoutSubcategory(HC.category, panel, "Last Words")
-    elseif InterfaceOptions_AddCategory then
-        panel.parent = "Hardcore Stat Tracker"
-        InterfaceOptions_AddCategory(panel)
-    end
+    RegisterPage(panel, "Famous Last Words", "Hardcore Stat Tracker")
 end
 
 -- ---------------------------------------------------------------------------
--- "Announcements" subpanel
+-- "Low-Health Alert" sub-page: a personal screen-flash + sound warning,
+-- independent of the Famous Last Words chat line.
+-- ---------------------------------------------------------------------------
+function HC:BuildAlertOptions()
+    if HC.alertPanel then return end
+    local panel = CreateFrame("Frame")
+    panel.name = "Low-Health Alert"
+    HC.alertPanel = panel
+
+    local function LW() return HC.db.lastWords end
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("Low-Health Alert")
+
+    local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    sub:SetWidth(560); sub:SetJustifyH("LEFT")
+    sub:SetText("A heads-up for YOU when your health drops low: a red screen-edge flash and a "
+        .. "warning sound. Nothing is sent to chat - that's the separate Famous Last Words page.")
+
+    local controls = {}
+    local enableCB = MakeCheck(panel, "alert_enabled", "Enable low-health alert", 16, -76,
+        function() return LW().alertSelf end,
+        function(v) LW().alertSelf = v end,
+        "Flash a red low-health vignette and play a warning sound when you drop below the threshold.")
+    controls[#controls + 1] = enableCB
+
+    local thr = MakeSlider(panel, "alertthr", 30, -120, 5, 60, 1,
+        function(v) return "Alert at or below: " .. v .. "%" end,
+        function() return LW().alertThreshold or 30 end,
+        function(v) LW().alertThreshold = v end,
+        "Health % at which the flash + sound fire. Set it higher than the chat-line % for an earlier warning.")
+    controls[#controls + 1] = thr
+
+    local testBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    testBtn:SetSize(90, 22)
+    testBtn:SetPoint("TOPLEFT", 16, -168)
+    testBtn:SetText("Test")
+    testBtn:SetScript("OnClick", function() if HC.TestAlert then HC:TestAlert() end end)
+    AddTooltip(testBtn, "Test", "Fire the flash + sound right now, as a preview.")
+
+    local function Refresh() if HC.db then RefreshControls(controls) end end
+    panel:SetScript("OnShow", Refresh)
+    Refresh()
+
+    RegisterPage(panel, "Low-Health Alert", "Hardcore Stat Tracker")
+end
+
+-- ---------------------------------------------------------------------------
+-- "Announcements" sub-page
 -- ---------------------------------------------------------------------------
 function HC:BuildAnnounceOptions()
     if HC.anPanel then return end
@@ -486,36 +682,36 @@ function HC:BuildAnnounceOptions()
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
-    sub:SetText("After a fight you survive, brag about any new all-time records you set. Sent to "
-        .. "party chat (or /say when solo), |cffff8080never in raid|r. Only new personal bests "
+    sub:SetText("After a fight you survive, brag in chat about any new all-time records you set. Sent "
+        .. "to party (or /say when solo), |cffff8080never in raid|r. Only fresh personal bests "
         .. "announce, so it stays rare.")
 
-    local anChecks = {}
+    local controls = {}
     local function addc(name, label, x, y, get, set, tip)
         local cb = MakeCheck(panel, name, label, x, y, get, set, tip)
-        anChecks[#anChecks + 1] = cb
+        controls[#controls + 1] = cb
         return cb
     end
 
     addc("an_enabled", "Enable record announcements", 16, -64,
         function() return AN().enabled end, function(v) AN().enabled = v end,
-        "Master switch.")
-    addc("an_guild", "Announce to guild chat", 16, -90,
+        "Master switch for the post-fight brag.")
+    addc("an_guild", "Also announce to guild chat", 16, -90,
         function() return AN().guild end, function(v) AN().guild = v end,
-        "Post the brag to guild chat (alongside party/say, unless 'guild only' is set).")
+        "Post the brag to guild chat as well (alongside party/say, unless 'guild only' is set).")
     addc("an_guildOnly", "Guild only (skip party/say)", 36, -114,
         function() return AN().guildOnly end, function(v) AN().guildOnly = v end,
         "When guild chat is on, send ONLY to guild - never to party or /say.")
     local maxSlider = MakeSlider(panel, "anmax", 30, -150, 1, 5, 1,
         function(v) return "Max announcements per fight: " .. v end,
         function() return AN().max or 2 end,
-        function(v) AN().max = v end)
+        function(v) AN().max = v end,
+        "Caps how many brags a single fight can produce, so a big fight doesn't spam chat.")
+    controls[#controls + 1] = maxSlider
 
-    local hdr = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    hdr:SetPoint("TOPLEFT", 16, -186)
-    hdr:SetText("Records to announce")
+    MakeHeader(panel, "Records to announce", 16, -188)
 
-    local startY, rowH, colW = -210, 24, 270
+    local startY, rowH, colW = -212, 24, 270
     local order = HC.ANNOUNCE_ORDER
     local perCol = math.ceil(#order / 2)
     for i, key in ipairs(order) do
@@ -524,25 +720,15 @@ function HC:BuildAnnounceOptions()
         local row = (i <= perCol) and (i - 1) or (i - perCol - 1)
         addc("an_" .. key, def.label, 16 + col * colW, startY - row * rowH,
             function() return AN().stats[key] end,
-            function(v) AN().stats[key] = v end)
+            function(v) AN().stats[key] = v end,
+            "Announce when you beat your " .. def.label:lower() .. ".")
     end
 
-    local function anRefresh()
-        if not HC.db then return end
-        for _, cb in ipairs(anChecks) do cb:SetChecked(cb._get() and true or false) end
-        local v = AN().max or 2
-        maxSlider:SetValue(v)
-        _G[maxSlider:GetName() .. "Text"]:SetText("Max announcements per fight: " .. v)
-    end
+    local function anRefresh() if HC.db then RefreshControls(controls) end end
     panel:SetScript("OnShow", anRefresh)
     anRefresh()
 
-    if Settings and Settings.RegisterCanvasLayoutSubcategory and HC.category then
-        Settings.RegisterCanvasLayoutSubcategory(HC.category, panel, "Announcements")
-    elseif InterfaceOptions_AddCategory then
-        panel.parent = "Hardcore Stat Tracker"
-        InterfaceOptions_AddCategory(panel)
-    end
+    RegisterPage(panel, "Announcements", "Hardcore Stat Tracker")
 end
 
 function HC:OpenOptions()

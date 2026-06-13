@@ -59,6 +59,8 @@ SlashCmdList.HST = function(msg)
         print("|cffff4444Hardcore Stat Tracker|r: welcome flag cleared - it will also auto-show on next login.")
     elseif msg == "reset" then
         StaticPopup_Show("HST_RESET")
+    elseif msg == "resethits" or msg == "debughits" then
+        if HC.ResetHitRecords then HC:ResetHitRecords() end
     elseif msg:match("^makgora") or msg:match("^mak'gora") then
         local arg = msg:match("(%a+)%s*$")
         if arg == "won" then
@@ -140,7 +142,10 @@ HC.frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 HC.frame:RegisterEvent("QUEST_TURNED_IN")
 HC.frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 HC.frame:RegisterEvent("CHAT_MSG_SYSTEM")
-HC.frame:RegisterUnitEvent("UNIT_HEALTH", "player")
+HC.frame:RegisterEvent("PLAYER_MONEY")
+HC.frame:RegisterEvent("CHAT_MSG_MONEY")
+-- player drives the low-health features; party1-4 power the "players saved" stat.
+HC.frame:RegisterUnitEvent("UNIT_HEALTH", "player", "party1", "party2", "party3", "party4")
 
 HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
     -- Some events (UNIT_HEALTH especially) can fire during the loading screen,
@@ -148,6 +153,7 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
     if not HC.db and event ~= "PLAYER_LOGIN" then return end
     if event == "PLAYER_LOGIN" then
         HC.ApplyDefaults()
+        HC.OnMoney()   -- baseline current money so session income is counted
         HC.state.playerGUID = UnitGUID("player")
         HC.RestorePosition()
         HC:ApplyMiniAlpha()
@@ -172,7 +178,7 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         HC.OnCombatLog()
     elseif event == "UNIT_HEALTH" then
-        HC.OnHealth()
+        if arg1 == "player" then HC.OnHealth() else HC.OnPartyHealth(arg1) end
     elseif event == "PLAYER_REGEN_DISABLED" then
         HC.OnCombatStart()
     elseif event == "PLAYER_REGEN_ENABLED" then
@@ -191,6 +197,10 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC.VisitZone()
     elseif event == "CHAT_MSG_SYSTEM" then
         HC.OnSystemMsg(arg1)
+    elseif event == "PLAYER_MONEY" then
+        HC.OnMoney()
+    elseif event == "CHAT_MSG_MONEY" then
+        HC.OnLootMoney(arg1)
     elseif event == "PLAYER_ENTERING_WORLD" then
         HC.UpdatePet()
         HC.RefreshGroup()

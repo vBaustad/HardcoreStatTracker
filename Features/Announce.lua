@@ -21,6 +21,12 @@ HC.ANNOUNCE = {
         msg = function() return ("new biggest melee hit: %s!"):format(Comma(HC.db.biggestMelee)) end },
     biggestRanged = { field = "biggestRanged", label = "Biggest Ranged Hit",
         msg = function() return ("new biggest ranged hit: %s!"):format(Comma(HC.db.biggestRanged)) end },
+    biggestSpell = { field = "biggestSpell", label = "Biggest Spell Hit",
+        msg = function() return ("new biggest spell hit: %s!"):format(Comma(HC.db.biggestSpell)) end },
+    biggestHeal  = { field = "biggestHeal", label = "Biggest Heal",
+        msg = function() return ("new biggest heal: %s!"):format(Comma(HC.db.biggestHeal)) end },
+    playersSaved = { field = "playersSaved", label = "Player Saved",
+        msg = function() return "clutch heal - pulled a teammate back from the brink!" end },
     toughestFoe  = { field = "biggestLevelDiff", label = "Toughest Foe",
         msg = function() return ("just took on something %s levels above me%s!"):format(
             FmtDiff(HC.db.biggestLevelDiff), HC.db.biggestLevelDiffMob and (" (" .. HC.db.biggestLevelDiffMob .. ")") or "") end },
@@ -39,7 +45,7 @@ HC.ANNOUNCE = {
 HC.ANNOUNCE_ORDER = {
     "closestCall", "nearestDeath", "toughestFoe", "biggestHit", "highestCrit",
     "mostFoes", "highestFall", "untouched", "biggestMelee", "biggestRanged",
-    "longestFight", "mostDmgFight",
+    "biggestSpell", "playersSaved", "biggestHeal", "longestFight", "mostDmgFight",
 }
 
 -- Channel: party (never raid), else /say. Guild is optional: alongside, or only.

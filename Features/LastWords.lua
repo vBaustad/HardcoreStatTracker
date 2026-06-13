@@ -120,20 +120,19 @@ function HC.SayMessage(msg, channel, fromHardware)
     end
 end
 
-function HC:TriggerDanger(fromHardware)
+-- Settings "Test" button on the Famous Last Words page. Runs inside a click (a
+-- hardware event), so it can send /say directly - a true preview of the line.
+function HC:TestLastWords()
     local lw = HC.db.lastWords
-    if lw.say then
+    if lw and lw.say then
         local msg = HC:RandomLastWord()
-        if msg then HC.SayMessage(msg, lw.channel or "SAY", fromHardware) end
-    end
-    if lw.alertSelf then HC:DangerAlert() end
-end
-
--- Settings "Test" button runs inside a click (a hardware event), so it can send
--- /say directly - a true preview of the real thing.
-function HC:TestDanger()
-    HC:TriggerDanger(true)
-    if not (HC.db.lastWords and HC.db.lastWords.say) then
+        if msg then HC.SayMessage(msg, lw.channel or "SAY", true) end
+    else
         print("|cffff4444Hardcore Stat Tracker|r: \"Announce a message in chat\" is off, so nothing was sent.")
     end
+end
+
+-- Settings "Test" button on the Low-Health Alert page: just the flash + sound.
+function HC:TestAlert()
+    HC:DangerAlert()
 end
