@@ -12,5 +12,14 @@
 # After creating the CurseForge project, set the ID below and change the '#' to '##':
 # X-Curse-Project-ID: 000000
 
-HardcoreStatTracker.lua
-Options.lua
+Core\Util.lua
+Core\Database.lua
+Engine\Tracking.lua
+Features\LastWords.lua
+Features\Announce.lua
+UI\MiniPanel.lua
+UI\FullWindow.lua
+UI\Splashes.lua
+UI\Welcome.lua
+UI\Options.lua
+Core\Main.lua
