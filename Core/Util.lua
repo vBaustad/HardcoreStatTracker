@@ -40,4 +40,20 @@ function HC.FmtPlayed(s)
     if h > 0 then return string.format("%dh %dm", h, m) end
     return string.format("%dm", m)
 end
+-- Lightweight, dependency-free string hash (two independent rolling hashes
+-- combined into one token). Used only for the saved-stats integrity check, so
+-- it does not need to be cryptographic - it just has to make a hand-edit of the
+-- SavedVariables file change the result. No bit ops: every step stays well under
+-- 2^53 so the math is exact on WoW's Lua doubles.
+function HC.Hash(s)
+    s = tostring(s or "")
+    local h1, h2 = 5381, 2166136261 % 2147483647
+    for i = 1, #s do
+        local c = s:byte(i)
+        h1 = (h1 * 33 + c) % 4294967291      -- prime just under 2^32
+        h2 = (h2 * 131 + c) % 2147483647     -- 2^31 - 1
+    end
+    return string.format("%x-%x", h1, h2)
+end
+
 HC.STDFONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"

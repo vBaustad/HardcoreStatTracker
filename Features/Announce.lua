@@ -7,40 +7,66 @@ local Comma, FmtTime, FmtDiff, FmtShort, FmtSec, FmtPlayed = HC.Comma, HC.FmtTim
 -- ---------------------------------------------------------------------------
 HC.ANNOUNCE = {
     closestCall  = { field = "lowestPct", lower = true, label = "Closest Call (new low %)",
-        msg = function() return ("new closest call - survived at %d%% HP%s!"):format(
-            math.floor(HC.db.lowestPct), HC.db.lowestSource and (" vs " .. HC.db.lowestSource) or "") end },
+        msg = function()
+            local p = math.floor(HC.db.lowestPct)
+            if HC.db.lowestSource then return ("survived at %d%% HP vs %s - my closest call yet"):format(p, HC.db.lowestSource) end
+            return ("survived at %d%% HP - my closest call yet"):format(p)
+        end },
     nearestDeath = { field = "closestSeconds", lower = true, label = "Nearest Death (seconds)",
-        msg = function() return ("that was close - only %s from death!"):format(FmtSec(HC.db.closestSeconds)) end },
+        msg = function() return ("came within %s of dying"):format(FmtSec(HC.db.closestSeconds)) end },
     biggestHit   = { field = "biggestHit", label = "Biggest Hit Taken",
-        msg = function() return ("just took a record hit for %s%s!"):format(Comma(HC.db.biggestHit),
-            HC.db.biggestHitSource and (" from " .. HC.db.biggestHitSource) or "") end },
+        msg = function()
+            local n = Comma(HC.db.biggestHit)
+            if HC.db.biggestHitSource then return ("survived a %s hit from %s"):format(n, HC.db.biggestHitSource) end
+            return ("survived a record %s hit"):format(n)
+        end },
     highestCrit  = { field = "highestCrit", label = "Highest Crit",
-        msg = function() return ("new biggest crit - %s%s!"):format(Comma(HC.db.highestCrit),
-            HC.db.highestCritSpell and (" (" .. HC.db.highestCritSpell .. ")") or "") end },
+        msg = function()
+            local n = Comma(HC.db.highestCrit)
+            if HC.db.highestCritSpell then return ("biggest crit yet: %s (%s)"):format(n, HC.db.highestCritSpell) end
+            return ("biggest crit yet: %s"):format(n)
+        end },
     biggestMelee = { field = "biggestMelee", label = "Biggest Melee Hit",
-        msg = function() return ("new biggest melee hit: %s!"):format(Comma(HC.db.biggestMelee)) end },
+        msg = function() return ("biggest melee hit yet: %s"):format(Comma(HC.db.biggestMelee)) end },
     biggestRanged = { field = "biggestRanged", label = "Biggest Ranged Hit",
-        msg = function() return ("new biggest ranged hit: %s!"):format(Comma(HC.db.biggestRanged)) end },
+        msg = function() return ("biggest ranged hit yet: %s"):format(Comma(HC.db.biggestRanged)) end },
     biggestSpell = { field = "biggestSpell", label = "Biggest Spell Hit",
-        msg = function() return ("new biggest spell hit: %s!"):format(Comma(HC.db.biggestSpell)) end },
+        msg = function() return ("biggest spell hit yet: %s"):format(Comma(HC.db.biggestSpell)) end },
     biggestHeal  = { field = "biggestHeal", label = "Biggest Heal",
-        msg = function() return ("new biggest heal: %s!"):format(Comma(HC.db.biggestHeal)) end },
+        msg = function() return ("biggest heal yet: %s"):format(Comma(HC.db.biggestHeal)) end },
     playersSaved = { field = "playersSaved", label = "Player Saved",
-        msg = function() return "clutch heal - pulled a teammate back from the brink!" end },
+        msg = function() return "saved a teammate from near-certain death" end },
     toughestFoe  = { field = "biggestLevelDiff", label = "Toughest Foe",
-        msg = function() return ("just took on something %s levels above me%s!"):format(
-            FmtDiff(HC.db.biggestLevelDiff), HC.db.biggestLevelDiffMob and (" (" .. HC.db.biggestLevelDiffMob .. ")") or "") end },
-    highestFall  = { field = "highestFall", label = "Highest Fall",
-        msg = function() return ("survived a record fall for %s damage!"):format(Comma(HC.db.highestFall)) end },
+        msg = function()
+            local d = HC.db.biggestLevelDiff
+            if HC.db.biggestLevelDiffMob then return ("beat %s, %d levels above me"):format(HC.db.biggestLevelDiffMob, d) end
+            return ("beat a foe %d levels above me"):format(d)
+        end },
+    highestFall  = { field = "highestFallPct", label = "Highest Fall",
+        msg = function()
+            if HC.db.highestFallPct then return ("survived a fall that took %d%% of my HP"):format(math.floor(HC.db.highestFallPct)) end
+            return ("survived a %s-damage fall"):format(Comma(HC.db.highestFall))
+        end },
+
     longestFight = { field = "longestFight", label = "Longest Fight",
-        msg = function() return ("new longest fight: %s!"):format(FmtTime(HC.db.longestFight)) end },
+        msg = function() return ("longest fight yet: %s"):format(FmtTime(HC.db.longestFight)) end },
     mostDmgFight = { field = "mostDmgFight", label = "Most Dmg in One Fight",
-        msg = function() return ("record damage taken in one fight: %s!"):format(Comma(HC.db.mostDmgFight)) end },
+        msg = function() return ("took a record %s in a single fight"):format(Comma(HC.db.mostDmgFight)) end },
     untouched    = { field = "untouched", label = "Untouched Streak",
-        msg = function() return ("untouchable - %s in combat without a scratch!"):format(FmtTime(HC.db.untouched)) end },
+        msg = function() return ("%s in combat without taking damage"):format(FmtTime(HC.db.untouched)) end },
     mostFoes     = { field = "mostFoes", label = "Most Foes at Once",
-        msg = function() return ("fought %d enemies at once and lived!"):format(HC.db.mostFoes) end },
+        msg = function() return ("survived %d enemies at once"):format(HC.db.mostFoes) end },
 }
+
+-- Guild clutch-survival lines, picked at random so it never repeats word-for-word. %d = HP%.
+local CLUTCH_LINES = {
+    "survived a fight at %d%% HP",
+    "made it out of a fight at %d%% HP",
+    "down to %d%% HP, but survived the fight",
+}
+-- Guild clutch hype is intentionally rare and not user-tunable.
+local CLUTCH_PCT      = 5    -- only survivals at/under this HP% reach guild
+local CLUTCH_COOLDOWN = 300  -- and at most once every 5 minutes
 -- Priority order when the per-fight cap trims the list (most impressive first).
 HC.ANNOUNCE_ORDER = {
     "closestCall", "nearestDeath", "toughestFoe", "biggestHit", "highestCrit",
@@ -48,24 +74,19 @@ HC.ANNOUNCE_ORDER = {
     "biggestSpell", "playersSaved", "biggestHeal", "longestFight", "mostDmgFight",
 }
 
--- Channel: party (never raid), else /say. Guild is optional: alongside, or only.
--- /say queues to the next keypress via HC.SayMessage (hardware-event rule).
-function HC:Announce(msgs)
-    local an = HC.db.announce
-    local primary   = (IsInGroup() and not IsInRaid()) and "PARTY" or "SAY"
-    local toGuild   = an.guild and IsInGuild()
-    local guildOnly = toGuild and an.guildOnly
-    for _, m in ipairs(msgs) do
-        if not guildOnly then HC.SayMessage(m, primary, false) end
-        if toGuild then HC.SayMessage(m, "GUILD", false) end
-    end
-end
-
--- Compare end-of-fight records to the combat-start snapshot. New bests are
--- queued and sent a few seconds AFTER combat ends - if you chain-pull into
--- another fight, the brag waits until you're genuinely out of combat.
+-- Two streams, queued at combat end and sent a few seconds LATER (so a chain-pull
+-- holds the brag, and a death in the meantime cancels it entirely):
+--   * records  -> party (or /say solo), never raid, never guild
+--   * clutch   -> guild only: "survived a fight at X% HP", rare by design
+-- Each queue entry is { msg = ..., chan = "PARTY"/"SAY"/"GUILD" }.
 local ANNOUNCE_DELAY = 4
 local pendingAnnounce = {}
+local lastGuildBrag   = 0   -- time() of the last guild line, for the cooldown
+
+-- Wipe anything pending (called on death so a "I survived!" line never posts).
+function HC:ClearAnnounce()
+    wipe(pendingAnnounce)
+end
 
 function HC:FlushAnnounce()
     if #pendingAnnounce == 0 then return end
@@ -74,16 +95,28 @@ function HC:FlushAnnounce()
         wipe(pendingAnnounce)
         return
     end
-    HC:Announce(pendingAnnounce)
+    local an = HC.db.announce
+    for _, e in ipairs(pendingAnnounce) do
+        if e.chan == "GUILD" then
+            if IsInGuild() and (time() - lastGuildBrag) >= CLUTCH_COOLDOWN then
+                HC.SayMessage(e.msg, "GUILD", false)
+                lastGuildBrag = time()
+            end
+        else
+            HC.SayMessage(e.msg, e.chan, false)
+        end
+    end
     wipe(pendingAnnounce)
 end
 
+-- Records stream: new all-time bests this fight -> your group (party/say).
 function HC:CheckAnnounce()
     local an = HC.db.announce
-    if not (an and an.enabled) or IsInRaid() or not HC.state.combatSnapshot then return end
-    local cap = an.max or 2
+    if not (an and an.enabled and an.records) or IsInRaid() or not HC.state.combatSnapshot then return end
+    local primary = (IsInGroup() and not IsInRaid()) and "PARTY" or "SAY"
+    local cap, count = an.max or 2, 0
     for _, key in ipairs(HC.ANNOUNCE_ORDER) do
-        if #pendingAnnounce >= cap then break end
+        if count >= cap then break end
         if an.stats[key] then
             local def = HC.ANNOUNCE[key]
             local cur, old = HC.db[def.field], HC.state.combatSnapshot[def.field]
@@ -95,10 +128,25 @@ function HC:CheckAnnounce()
             end
             if key == "toughestFoe" and (HC.db.biggestLevelDiff or 0) <= 0 then improved = false end
             if improved then
-                pendingAnnounce[#pendingAnnounce + 1] = def.msg()
+                pendingAnnounce[#pendingAnnounce + 1] = { msg = def.msg(), chan = primary }
+                count = count + 1
             end
         end
     end
+end
+
+-- Clutch stream: survived a real fight at/under the threshold -> guild hype.
+-- The actual cooldown + IsInGuild check happen at send time (FlushAnnounce).
+function HC:QueueClutch(lowPct)
+    local an = HC.db.announce
+    if not (an and an.enabled and an.clutch) then return end
+    if IsInRaid() or not IsInGuild() then return end
+    if not lowPct or lowPct > CLUTCH_PCT then return end
+    local tmpl = CLUTCH_LINES[math.random(#CLUTCH_LINES)]
+    pendingAnnounce[#pendingAnnounce + 1] = {
+        msg  = tmpl:format(math.max(1, math.floor(lowPct))),
+        chan = "GUILD",
+    }
 end
 
 -- Fire the queued brags a few seconds after combat (kept here so the announce

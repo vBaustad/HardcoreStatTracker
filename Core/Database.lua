@@ -14,6 +14,7 @@ local RECORD_DEFAULTS = {
     longestFight   = 0,    longestFightZone = nil,
     mostDmgFight   = 0,    mostDmgFightZone = nil,
     killingBlows   = 0,
+    petKillingBlows = 0,
     panicMoments   = 0,
     fights         = 0,
     biggestMelee   = 0,    biggestMeleeTarget = nil,
@@ -49,6 +50,7 @@ local LAYOUT_DEFAULTS = {
     combatTimer = true,  -- live "In Combat" line on the mini panel
     miniHighlight = true,-- animated border on a mini row that just set a record
     fullAlpha  = 0.97,   -- full-window background opacity
+    fullScale  = 1.0,    -- full-window scale (for high-res / readability)
     miniAlpha  = 0.8,    -- mini-panel background opacity
     point      = { "CENTER", "CENTER", 250, 0 },
 }
@@ -84,6 +86,13 @@ function HC.ApplyDefaults()
     if not HardcoreStatTrackerDB.playerSavedLog then HardcoreStatTrackerDB.playerSavedLog = {} end
     if not HardcoreStatTrackerDB.zonesVisited then HardcoreStatTrackerDB.zonesVisited = {} end
     if not HardcoreStatTrackerDB.recordStamps then HardcoreStatTrackerDB.recordStamps = {} end  -- [statKey] = time() of last record
+
+    -- Anti-fake audit trail (see the integrity section below). resets is a plain
+    -- count of full record resets; tamperCount/tamperedEver are set when the
+    -- saved-stats integrity check fails. All three persist through a reset.
+    if HardcoreStatTrackerDB.resets       == nil then HardcoreStatTrackerDB.resets       = 0 end
+    if HardcoreStatTrackerDB.tamperCount  == nil then HardcoreStatTrackerDB.tamperCount  = 0 end
+    if HardcoreStatTrackerDB.tamperedEver == nil then HardcoreStatTrackerDB.tamperedEver = false end
 
     -- One-time smart defaults for the mini view: keep it to a tight core, and
     -- only show pet stats for pet classes. Existing user toggles are preserved.
@@ -124,6 +133,10 @@ function HC.ApplyDefaults()
             if HardcoreStatTrackerDB.show[k] == nil then HardcoreStatTrackerDB.show[k] = false end
         end
         HardcoreStatTrackerDB.showVersion = 5
+    end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 6 then
+        if HardcoreStatTrackerDB.show.petKillingBlows == nil then HardcoreStatTrackerDB.show.petKillingBlows = false end
+        HardcoreStatTrackerDB.showVersion = 6
     end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
@@ -187,12 +200,16 @@ function HC.ApplyDefaults()
     if not HardcoreStatTrackerDB.announce then HardcoreStatTrackerDB.announce = {} end
     local an = HardcoreStatTrackerDB.announce
     if an.enabled   == nil then an.enabled   = false end
-    if an.guild     == nil then an.guild     = false end
-    if an.guildOnly == nil then an.guildOnly = false end
+    -- Records stream -> party/say only.
+    if an.records   == nil then an.records   = true end
     if an.max       == nil then an.max       = 2 end
     if an.stats   == nil then
         an.stats = { closestCall = true, toughestFoe = true, highestCrit = true, nearestDeath = true }
     end
+    -- Clutch survival stream -> guild only, opt-in. The 5% threshold and 5-min
+    -- cooldown are fixed in code (not user-tunable), so just a toggle here.
+    if an.clutch == nil then an.clutch = false end
+    an.guild, an.guildOnly, an.clutchPct, an.clutchCooldown = nil, nil, nil, nil  -- retired fields
 
     -- Account-wide stats (persist across all characters). Mak'gora especially:
     -- a loss is the character's death, so it only makes sense account-wide.
@@ -230,4 +247,77 @@ function HC.ApplyDefaults()
     end
 
     HC.db = HardcoreStatTrackerDB    -- exposed for Options.lua
+end
+
+-- ---------------------------------------------------------------------------
+-- Saved-stats integrity check (anti-fake)
+--
+-- We hash the headline record values (plus the reset/tamper counters) together
+-- with a fixed salt and store the result next to the data. On login we recompute
+-- and compare: if someone hand-edited the SavedVariables .lua to inflate a
+-- number - or to quietly zero the reset/tamper counters - the stored hash no
+-- longer matches and we flag the character.
+--
+-- This catches CASUAL file edits only. The salt and algorithm are visible in
+-- this (plaintext) addon, so a determined editor could recompute a valid hash
+-- after changing values. Treat it as a deterrent and a "did anyone touch the
+-- file" signal, not as tamper-proofing. The hash is recomputed at logout/reload
+-- (the only time SavedVariables are written), so it always matches a clean
+-- session; a crash reverts both data and hash together, so it never false-flags.
+-- ---------------------------------------------------------------------------
+local INTEGRITY_SALT = "HST-v1-3f9a2c7e-stat-integrity"
+
+-- Every value-bearing record field a faker might inflate. The three audit
+-- counters are signed too, so they can't be reset in the file without tripping
+-- the same check. Sorted once for a deterministic serialization order.
+local PROTECTED = {
+    "lowestPct", "lowestHP", "lowestMax", "lowestLevel", "lowestZone", "lowestSource",
+    "closestSeconds", "closestSecHP", "closestSecLevel", "closestSecZone", "closestSecSource",
+    "biggestHit", "biggestHitSource", "biggestHitSpell", "biggestHitLevel", "biggestHitZone",
+    "highestFall", "highestFallPct", "highestFallLevel", "highestFallZone",
+    "panicMoments", "clutchSaves", "untouched", "mostFoes", "fights", "dmgTaken",
+    "longestFight", "longestFightZone", "mostDmgFight", "mostDmgFightZone",
+    "biggestLevelDiff", "biggestLevelDiffMob", "biggestLevelDiffMyLevel", "biggestLevelDiffZone",
+    "highestCrit", "highestCritSpell", "highestCritTarget",
+    "biggestMelee", "biggestMeleeTarget", "biggestRanged", "biggestRangedTarget",
+    "biggestSpell", "biggestSpellName", "biggestSpellTarget",
+    "killingBlows", "petKillingBlows",
+    "biggestHeal", "biggestHealSpell", "biggestHealTarget", "healingDone", "playersSaved",
+    "petDeaths", "partyDeaths", "buffsGiven",
+    "quests", "zones", "goldEarned", "goldLooted",
+    "resets", "tamperCount", "tamperedEver",
+}
+table.sort(PROTECTED)
+
+function HC.ComputeIntegrity()
+    local db = HardcoreStatTrackerDB
+    if not db then return nil end
+    local parts = {}
+    for _, k in ipairs(PROTECTED) do
+        parts[#parts + 1] = k .. "=" .. tostring(db[k])
+    end
+    return HC.Hash(INTEGRITY_SALT .. "\30" .. table.concat(parts, "\30"))
+end
+
+-- Recompute and store the stamp. Called at logout/reload and after any in-game
+-- action that legitimately changes the protected values (resets), so the file
+-- on disk always carries a matching hash.
+function HC.StoreIntegrity()
+    if not HardcoreStatTrackerDB then return end
+    HardcoreStatTrackerDB.integrity = HC.ComputeIntegrity()
+end
+
+-- Returns true if a stamp exists and no longer matches the data (i.e. the file
+-- was edited outside the game). Records the event. No stamp yet = first run
+-- after this feature shipped: establish a baseline at the next logout, no flag.
+function HC.CheckIntegrity()
+    local db = HardcoreStatTrackerDB
+    if not db then return false end
+    if not db.integrity then return false end
+    if db.integrity ~= HC.ComputeIntegrity() then
+        db.tamperCount  = (db.tamperCount or 0) + 1
+        db.tamperedEver = true
+        return true
+    end
+    return false
 end

@@ -166,7 +166,7 @@ function HC:BuildOptions()
     local function chk(...) local cb = MakeCheck(panel, ...); controls[#controls + 1] = cb; return cb end
     local function sld(...) local s = MakeSlider(panel, ...); controls[#controls + 1] = s; return s end
 
-    -- Panel section -----------------------------------------------------------
+    -- LEFT: panel toggles + on-screen behaviours --------------------------------
     MakeHeader(panel, "Panel", 16, -78)
     chk("shown", "Show the on-screen panel", 16, -100,
         function() return HC.db and HC.db.shown end,
@@ -177,36 +177,49 @@ function HC:BuildOptions()
         function(v) HC.db.locked = v end,
         "Stops the panel from being dragged by accident. Unlock to reposition it.")
 
-    sld("scale", 320, -100, 0.7, 2.0, 0.1,
-        function(v) return ("Panel scale: %.1f"):format(v) end,
+    MakeHeader(panel, "On screen", 16, -158)
+    chk("combattimer", "Show in-combat timer", 16, -180,
+        function() return HC.db and HC.db.combatTimer ~= false end,
+        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
+        "Adds a live \"In Combat\" line to the panel during a fight, showing fight time and damage taken.")
+    chk("minihighlight", "Highlight new records on the panel", 16, -204,
+        function() return HC.db and HC.db.miniHighlight ~= false end,
+        function(v) HC.db.miniHighlight = v end,
+        "Animate a dashed gold border around a panel row for a few seconds after it sets a new record.")
+    chk("mobtip", "Show mob damage history on tooltips", 16, -228,
+        function() return HC.db and HC.db.mobTooltip end,
+        function(v) HC.db.mobTooltip = v end,
+        "Adds \"Has hit you for up to X\" to the tooltip of any mob that has hurt one of your characters before.")
+
+    -- RIGHT: size / opacity sliders, grouped per window -------------------------
+    MakeHeader(panel, "Mini panel", 330, -78)
+    sld("scale", 360, -104, 0.7, 2.0, 0.1,
+        function(v) return ("Scale: %.1f"):format(v) end,
         function() return HC.db and HC.db.scale or 1 end,
         function(v) HC.db.scale = v; HC:UpdateDisplay() end,
         "Overall size of the mini panel.")
-    sld("font", 320, -140, 9, 20, 1,
+    sld("font", 360, -144, 9, 20, 1,
         function(v) return "Text size: " .. v end,
         function() return HC.db and HC.db.fontSize or 12 end,
         function(v) HC.db.fontSize = v; HC:UpdateDisplay() end,
         "Font size of the rows on the mini panel.")
-    sld("miniopacity", 320, -180, 0.2, 1.0, 0.05,
-        function(v) return ("Background opacity: %.0f%%"):format(v * 100) end,
+    sld("miniopacity", 360, -184, 0.2, 1.0, 0.05,
+        function(v) return ("Background: %.0f%%"):format(v * 100) end,
         function() return HC.db and HC.db.miniAlpha or 0.8 end,
         function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end,
         "How solid the mini panel's dark background is.")
 
-    -- On screen section --------------------------------------------------------
-    MakeHeader(panel, "On screen", 16, -218)
-    chk("combattimer", "Show in-combat timer", 16, -240,
-        function() return HC.db and HC.db.combatTimer ~= false end,
-        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
-        "Adds a live \"In Combat\" line to the panel during a fight, showing fight time and damage taken.")
-    chk("minihighlight", "Highlight new records on the panel", 16, -264,
-        function() return HC.db and HC.db.miniHighlight ~= false end,
-        function(v) HC.db.miniHighlight = v end,
-        "Animate a dashed gold border around a panel row for a few seconds after it sets a new record.")
-    chk("mobtip", "Show mob damage history on tooltips", 16, -288,
-        function() return HC.db and HC.db.mobTooltip end,
-        function(v) HC.db.mobTooltip = v end,
-        "Adds \"Has hit you for up to X\" to the tooltip of any mob that has hurt one of your characters before.")
+    MakeHeader(panel, "Full window (the [+] window)", 330, -222)
+    sld("fullscale", 360, -248, 0.7, 1.6, 0.05,
+        function(v) return ("Scale: %.2f"):format(v) end,
+        function() return HC.db and HC.db.fullScale or 1 end,
+        function(v) HC.db.fullScale = v; if HC.fullFrame then HC.fullFrame:SetScale(v) end end,
+        "Size of the full stats window. Also adjustable live from its Display button.")
+    sld("fullopacity", 360, -288, 0.2, 1.0, 0.05,
+        function(v) return ("Background: %.0f%%"):format(v * 100) end,
+        function() return HC.db and HC.db.fullAlpha or 0.97 end,
+        function(v) HC.db.fullAlpha = v; if HC.fullFrame then HC.fullFrame:SetBackdropColor(0.05, 0.04, 0.04, v) end end,
+        "Background opacity of the full stats window.")
 
     -- Footer: reset + support --------------------------------------------------
     local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -682,9 +695,8 @@ function HC:BuildAnnounceOptions()
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
-    sub:SetText("After a fight you survive, brag in chat about any new all-time records you set. Sent "
-        .. "to party (or /say when solo), |cffff8080never in raid|r. Only fresh personal bests "
-        .. "announce, so it stays rare.")
+    sub:SetText("Two separate, low-spam brags after a fight you SURVIVE (never on death, never in "
+        .. "raid): personal-best records to your group, and rare clutch-survival hype to your guild.")
 
     local controls = {}
     local function addc(name, label, x, y, get, set, tip)
@@ -692,32 +704,42 @@ function HC:BuildAnnounceOptions()
         controls[#controls + 1] = cb
         return cb
     end
+    local function adds(...) local s = MakeSlider(panel, ...); controls[#controls + 1] = s; return s end
 
-    addc("an_enabled", "Enable record announcements", 16, -64,
+    addc("an_enabled", "Enable announcements", 16, -70,
         function() return AN().enabled end, function(v) AN().enabled = v end,
-        "Master switch for the post-fight brag.")
-    addc("an_guild", "Also announce to guild chat", 16, -90,
-        function() return AN().guild end, function(v) AN().guild = v end,
-        "Post the brag to guild chat as well (alongside party/say, unless 'guild only' is set).")
-    addc("an_guildOnly", "Guild only (skip party/say)", 36, -114,
-        function() return AN().guildOnly end, function(v) AN().guildOnly = v end,
-        "When guild chat is on, send ONLY to guild - never to party or /say.")
-    local maxSlider = MakeSlider(panel, "anmax", 30, -150, 1, 5, 1,
-        function(v) return "Max announcements per fight: " .. v end,
+        "Master switch for both brags below.")
+
+    -- Left: records -> your group.
+    MakeHeader(panel, "To your group (party / say)", 16, -100)
+    addc("an_records", "Brag about new personal-best records", 16, -122,
+        function() return AN().records end, function(v) AN().records = v end,
+        "When you set a new all-time record this fight, post it to party (or /say solo). Pick which records below.")
+    adds("anmax", 30, -160, 1, 5, 1,
+        function(v) return "Max per fight: " .. v end,
         function() return AN().max or 2 end,
         function(v) AN().max = v end,
-        "Caps how many brags a single fight can produce, so a big fight doesn't spam chat.")
-    controls[#controls + 1] = maxSlider
+        "Caps how many records one fight can post, so a big fight doesn't flood your group.")
 
-    MakeHeader(panel, "Records to announce", 16, -188)
+    -- Right: clutch hype -> guild (intentionally not tunable).
+    MakeHeader(panel, "To guild", 305, -100)
+    addc("an_clutch", "Hype clutch survivals", 305, -122,
+        function() return AN().clutch end, function(v) AN().clutch = v end,
+        "Post a \"survived a fight at X% HP\" line to guild. Records (crits, hits, etc.) never go to guild.")
+    local gnote = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    gnote:SetPoint("TOPLEFT", 305, -150)
+    gnote:SetWidth(290); gnote:SetJustifyH("LEFT")
+    gnote:SetText("|cff888888Only fires when you survive a real fight at 5% HP or less, and at most "
+        .. "once every 5 minutes - so guild stays quiet. Never fires on death.|r")
 
-    local startY, rowH, colW = -212, 24, 270
+    MakeHeader(panel, "Records to announce (to your group)", 16, -256)
+    local startY, rowH, colW = -280, 24, 188
     local order = HC.ANNOUNCE_ORDER
-    local perCol = math.ceil(#order / 2)
+    local perCol = math.ceil(#order / 3)
     for i, key in ipairs(order) do
         local def = HC.ANNOUNCE[key]
-        local col = (i <= perCol) and 0 or 1
-        local row = (i <= perCol) and (i - 1) or (i - perCol - 1)
+        local col = math.floor((i - 1) / perCol)
+        local row = (i - 1) % perCol
         addc("an_" .. key, def.label, 16 + col * colW, startY - row * rowH,
             function() return AN().stats[key] end,
             function(v) AN().stats[key] = v end,

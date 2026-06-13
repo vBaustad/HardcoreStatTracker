@@ -60,13 +60,14 @@ function HC:StatData()
         notes = #snotes > 0 and snotes or nil }
 
     if HC.db.highestFall then
-        d.highestFall = { label = "Highest Fall", value = Comma(HC.db.highestFall),
-            notes = { string.format("level %s in %s", tostring(HC.db.highestFallLevel or "?"),
-                HC.db.highestFallZone or "?") } }
+        local val = HC.db.highestFallPct and (math.floor(HC.db.highestFallPct) .. "%") or Comma(HC.db.highestFall)
+        d.highestFall = { label = "Highest Fall", value = val,
+            notes = { string.format("%s damage, level %s in %s", Comma(HC.db.highestFall),
+                tostring(HC.db.highestFallLevel or "?"), HC.db.highestFallZone or "?") } }
     else d.highestFall = { label = "Highest Fall", value = "--", dim = true } end
 
     d.longestFight = { label = "Longest Fight",  value = FmtTime(HC.db.longestFight) }
-    d.mostDmgFight = { label = "Most Dmg / Fight", value = Comma(HC.db.mostDmgFight) }
+    d.mostDmgFight = { label = "Most Dmg Taken / Fight", value = Comma(HC.db.mostDmgFight) }
 
     if HC.db.biggestLevelDiff then
         d.toughestFoe = { label = "Toughest Foe", value = FmtDiff(HC.db.biggestLevelDiff) .. " lvl",
@@ -90,6 +91,7 @@ function HC:StatData()
     end
     d.petDeaths = { label = "Pet Deaths", value = Comma(HC.db.petDeaths),
         notes = #pnotes > 0 and pnotes or nil }
+    d.petKillingBlows = { label = "Pet Killing Blows", value = Comma(HC.db.petKillingBlows) }
 
     local anotes, alog = {}, HC.db.partyDeathLog or {}
     for i = #alog, math.max(1, #alog - 4), -1 do
@@ -182,6 +184,7 @@ local FULL_LAYOUT = {
     { header = "Pet" },
     { key = "currentPet",   icon = ICON .. "Ability_Hunter_BeastTaming" },
     { key = "petDeaths",    icon = ICON .. "Spell_Nature_Reincarnation" },
+    { key = "petKillingBlows", icon = ICON .. "Ability_Hunter_KillCommand" },
     { header = "Group" },
     { key = "partyDeaths",  icon = ICON .. "INV_Misc_Bone_HumanSkull_02" },
     { key = "buffsGiven",   icon = ICON .. "Spell_Holy_WordFortitude" },
@@ -207,6 +210,32 @@ fullTitle:SetText("|cffff4444Hardcore Stat Tracker|r")
 local fullChar = full:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 fullChar:SetPoint("TOP", 0, -30)
 
+-- Audit line: reset count + (if flagged) a tamper warning. A hoverable band that
+-- carries the tooltip; positioned in the footer between the two buttons by
+-- RefreshFull. Text is filled in RefreshFull too.
+local auditFrame = CreateFrame("Frame", nil, full)
+auditFrame:SetHeight(20)
+auditFrame:EnableMouse(true)
+local auditText = auditFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+auditText:SetPoint("CENTER")
+auditFrame:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine("Records integrity", 1, 0.82, 0)
+    GameTooltip:AddLine(("Stat resets: %d"):format(HC.db.resets or 0), 1, 1, 1)
+    GameTooltip:AddLine("Times this character's records have been wiped with /hst reset.", 0.7, 0.7, 0.7, true)
+    GameTooltip:AddLine(" ")
+    if HC.db.tamperedEver then
+        GameTooltip:AddLine("Integrity check FAILED", 1, 0.2, 0.2)
+        GameTooltip:AddLine(("The saved stats were changed outside the game (%d time%s). These records may not be legitimate."):format(
+            HC.db.tamperCount or 1, (HC.db.tamperCount or 1) == 1 and "" or "s"), 1, 1, 1, true)
+    else
+        GameTooltip:AddLine("Integrity check OK", 0.4, 1, 0.4)
+        GameTooltip:AddLine("The saved stats match the value written by the addon. A manual edit of the SavedVariables file would show here.", 0.7, 0.7, 0.7, true)
+    end
+    GameTooltip:Show()
+end)
+auditFrame:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
 local fullClose = CreateFrame("Button", nil, full, "UIPanelCloseButton")
 fullClose:SetPoint("TOPRIGHT", 2, 2)
 fullClose:SetScript("OnClick", function() full:Hide() end)
@@ -219,19 +248,104 @@ cfgBtn:SetScript("OnClick", function()
     if HC.OpenOptions then HC:OpenOptions() end
 end)
 
--- Background-opacity slider, in the footer next to Settings.
-local alphaSlider = CreateFrame("Slider", "HardcoreStatTrackerFullAlpha", full, "OptionsSliderTemplate")
-alphaSlider:SetSize(140, 16)
-alphaSlider:SetMinMaxValues(0.2, 1)
-alphaSlider:SetValueStep(0.05)
-alphaSlider:SetObeyStepOnDrag(true)
-_G["HardcoreStatTrackerFullAlphaLow"]:SetText("")
-_G["HardcoreStatTrackerFullAlphaHigh"]:SetText("")
-_G["HardcoreStatTrackerFullAlphaText"]:SetText("|cff888888Background|r")
-alphaSlider:SetScript("OnValueChanged", function(_, v)
-    if HC.db then HC.db.fullAlpha = v end
-    full:SetBackdropColor(0.05, 0.04, 0.04, v)
+-- "Display" button opens a shared Quick Settings popup (mini panel + full window
+-- size/opacity). The popup is parented to the screen (NOT the full window), so
+-- scaling the window can't move its own slider out from under the cursor. These
+-- same controls also live on the Settings page; both read/write the saved vars.
+local displayBtn = CreateFrame("Button", nil, full, "UIPanelButtonTemplate")
+displayBtn:SetSize(100, 20)
+displayBtn:SetText("Display")
+
+local adjust = CreateFrame("Frame", "HardcoreStatTrackerFullAdjust", UIParent, "BackdropTemplate")
+adjust:SetSize(240, 290)
+adjust:SetFrameStrata("FULLSCREEN_DIALOG")
+adjust:SetClampedToScreen(true)
+adjust:SetMovable(true); adjust:EnableMouse(true)
+adjust:Hide()
+adjust:SetBackdrop({
+    bgFile   = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+})
+adjust:SetBackdropColor(0.05, 0.04, 0.04, 0.95)
+adjust:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
+tinsert(UISpecialFrames, "HardcoreStatTrackerFullAdjust")  -- Escape closes
+adjust:SetScript("OnMouseDown", function(self) self:StartMoving() end)
+adjust:SetScript("OnMouseUp", function(self)
+    self:StopMovingOrSizing()
+    local p, _, rp, x, y = self:GetPoint()
+    if p and HC.db then HC.db.adjustPoint = { p, rp, math.floor(x), math.floor(y) } end
 end)
+
+local aTitle = adjust:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+aTitle:SetPoint("TOP", 0, -8)
+aTitle:SetText("|cffff4444Quick Settings|r")
+local aClose = CreateFrame("Button", nil, adjust, "UIPanelCloseButton")
+aClose:SetPoint("TOPRIGHT", 2, 2)
+aClose:SetScript("OnClick", function() adjust:Hide() end)
+
+local function quickHeader(text, y)
+    local h = adjust:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    h:SetPoint("TOPLEFT", 14, y)
+    h:SetText("|cffffd100" .. text .. "|r")
+end
+
+local quickSliders = {}
+local function quickSlider(suffix, y, lo, hi, step, fmt, get, set)
+    local nm = "HardcoreStatTrackerQuick" .. suffix
+    local s = CreateFrame("Slider", nm, adjust, "OptionsSliderTemplate")
+    s:SetSize(190, 16)
+    s:SetPoint("TOP", 0, y)
+    s:SetMinMaxValues(lo, hi); s:SetValueStep(step); s:SetObeyStepOnDrag(true)
+    _G[nm .. "Low"]:SetText(""); _G[nm .. "High"]:SetText("")
+    s._fmt, s._get = fmt, get
+    s:SetScript("OnValueChanged", function(_, v)
+        v = math.floor(v / step + 0.5) * step
+        _G[nm .. "Text"]:SetText(fmt(v))
+        set(v)
+    end)
+    quickSliders[#quickSliders + 1] = s
+    return s
+end
+
+quickHeader("Mini Panel", -32)
+quickSlider("MiniScale", -58, 0.7, 2.0, 0.1,
+    function(v) return ("Scale: %.1f"):format(v) end,
+    function() return HC.db and HC.db.scale or 1 end,
+    function(v) HC.db.scale = v; HC:UpdateDisplay() end)
+quickSlider("MiniFont", -96, 9, 20, 1,
+    function(v) return "Text size: " .. v end,
+    function() return HC.db and HC.db.fontSize or 12 end,
+    function(v) HC.db.fontSize = v; HC:UpdateDisplay() end)
+quickSlider("MiniAlpha", -134, 0.2, 1, 0.05,
+    function(v) return ("Background: %.0f%%"):format(v * 100) end,
+    function() return HC.db and HC.db.miniAlpha or 0.8 end,
+    function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end)
+
+quickHeader("Full Window", -168)
+quickSlider("FullScale", -194, 0.7, 1.6, 0.05,
+    function(v) return ("Scale: %.2f"):format(v) end,
+    function() return HC.db and HC.db.fullScale or 1 end,
+    function(v) HC.db.fullScale = v; full:SetScale(v) end)
+quickSlider("FullAlpha", -232, 0.2, 1, 0.05,
+    function(v) return ("Background: %.0f%%"):format(v * 100) end,
+    function() return HC.db and HC.db.fullAlpha or 0.97 end,
+    function(v) HC.db.fullAlpha = v; full:SetBackdropColor(0.05, 0.04, 0.04, v) end)
+
+function HC:ToggleFullAdjust()
+    if adjust:IsShown() then adjust:Hide(); return end
+    for _, s in ipairs(quickSliders) do
+        local v = s._get()
+        s:SetValue(v)
+        _G[s:GetName() .. "Text"]:SetText(s._fmt(v))
+    end
+    adjust:ClearAllPoints()
+    local p = HC.db and HC.db.adjustPoint
+    if p then adjust:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else adjust:SetPoint("CENTER") end
+    adjust:Show()
+end
+displayBtn:SetScript("OnClick", function() HC:ToggleFullAdjust() end)
 
 local divider = full:CreateTexture(nil, "ARTWORK")
 divider:SetColorTexture(0.6, 0.1, 0.1, 0.8)
@@ -375,18 +489,25 @@ function HC:RefreshFull()
         math.floor(c.r * 255), math.floor(c.g * 255), math.floor(c.b * 255),
         cname, UnitLevel("player"), className or ""))
 
+    local resets = HC.db.resets or 0
+    local audit = ("|cff888888Stat resets:|r |cffffd100%d|r"):format(resets)
+    if HC.db.tamperedEver then
+        audit = audit .. "      |cffff3333! values edited outside the game|r"
+    end
+    auditText:SetText(audit)
+
     local d = HC:StatData()
     local colGap = 12
     local colW = (FULL_W - PAD * 2 - colGap) / 2
     local colX = { PAD, PAD + colW + colGap }
-    local y, idx, shade = -HEADER_H, 0, false
+    local y, idx = -HEADER_H, 0
 
     -- Sections that are pure noise for this character get skipped entirely.
     local function SectionRelevant(name)
         if name == "Pet" then
             local _, class = UnitClass("player")
             return class == "HUNTER" or class == "WARLOCK"
-                or (HC.db.petDeaths or 0) > 0 or UnitExists("pet")
+                or (HC.db.petDeaths or 0) > 0 or (HC.db.petKillingBlows or 0) > 0 or UnitExists("pet")
         end
         if name == "Mak'gora (account-wide)" then
             return HC.adb ~= nil
@@ -399,7 +520,7 @@ function HC:RefreshFull()
         return true
     end
 
-    -- Walk the layout: each header spans full width; its rows pair into 2 columns.
+    -- Walk the layout: each header spans full width; its stats flow into 2 balanced columns.
     local i = 1
     while i <= #FULL_LAYOUT do
         local item = FULL_LAYOUT[i]
@@ -410,22 +531,40 @@ function HC:RefreshFull()
             while i <= #FULL_LAYOUT and not FULL_LAYOUT[i].header do
                 items[#items + 1] = FULL_LAYOUT[i]; i = i + 1
             end
-            if SectionRelevant(header) then
+            -- A noise section (Pet/Healing/Mak'gora for off-class chars) is normally
+            -- skipped, but if the player put any of its stats on the mini panel we
+            -- honor that here - showing ONLY those opted-in stats, not the whole
+            -- (mostly-zero) section. Relevant sections still show everything.
+            local shown = items
+            if not SectionRelevant(header) then
+                shown = {}
+                for _, it in ipairs(items) do
+                    if HC:Visible(it.key) then shown[#shown + 1] = it end
+                end
+            end
+            if #shown > 0 then
                 if idx > 0 then y = y - 6 end  -- breathing room between sections
                 idx = idx + 1
                 StyleHeader(GetRow(idx), header, y, FULL_W - PAD * 2)
                 y = y - 21
-                for j = 1, #items, 2 do
-                    shade = not shade
+                -- Two independent columns: each stat drops into whichever column is
+                -- currently shorter, so a tall (sub-line) cell never leaves a gap
+                -- beside a short one. Stays L/R-ordered when heights match.
+                local yL, yR = y, y
+                local sL, sR = false, false
+                for _, it in ipairs(shown) do
                     idx = idx + 1
-                    local h1 = StyleStat(GetRow(idx), items[j], colX[1], y, colW, d, shade)
-                    local h2 = 0
-                    if items[j + 1] then
-                        idx = idx + 1
-                        h2 = StyleStat(GetRow(idx), items[j + 1], colX[2], y, colW, d, shade)
+                    if yL >= yR then
+                        sL = not sL
+                        local h = StyleStat(GetRow(idx), it, colX[1], yL, colW, d, sL)
+                        yL = yL - h - 2
+                    else
+                        sR = not sR
+                        local h = StyleStat(GetRow(idx), it, colX[2], yR, colW, d, sR)
+                        yR = yR - h - 2
                     end
-                    y = y - math.max(h1, h2) - 2
                 end
+                y = math.min(yL, yR)
             end
         else
             i = i + 1
@@ -434,11 +573,14 @@ function HC:RefreshFull()
     for j = idx + 1, #fullRows do fullRows[j]:Hide() end
 
     local footerY = y - 6
-    alphaSlider:ClearAllPoints()
-    alphaSlider:SetPoint("TOPLEFT", PAD + 8, footerY - 14)   -- label sits above the track
+    displayBtn:ClearAllPoints()
+    displayBtn:SetPoint("TOPLEFT", PAD + 6, footerY - 10)
     cfgBtn:ClearAllPoints()
     cfgBtn:SetPoint("TOPRIGHT", -PAD - 6, footerY - 10)
-    full:SetHeight(-footerY + 42)
+    auditFrame:ClearAllPoints()
+    auditFrame:SetPoint("LEFT", displayBtn, "RIGHT", 4, 0)
+    auditFrame:SetPoint("RIGHT", cfgBtn, "LEFT", -4, 0)
+    full:SetHeight(-footerY + 36)
 end
 
 function HC:ToggleFull()
@@ -446,9 +588,8 @@ function HC:ToggleFull()
     local p = HC.db and HC.db.fullPoint
     full:ClearAllPoints()
     if p then full:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else full:SetPoint("CENTER") end
-    local a = (HC.db and HC.db.fullAlpha) or 0.97
-    full:SetBackdropColor(0.05, 0.04, 0.04, a)
-    alphaSlider:SetValue(a)
+    full:SetBackdropColor(0.05, 0.04, 0.04, (HC.db and HC.db.fullAlpha) or 0.97)
+    full:SetScale((HC.db and HC.db.fullScale) or 1)
     full:Show()
     HC:RefreshFull()
 end

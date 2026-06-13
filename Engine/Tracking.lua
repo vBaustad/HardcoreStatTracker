@@ -15,9 +15,10 @@ local lwAlertArmed = false -- screen/sound alert re-arm flag
 local lwAlertFire  = -999
 
 -- per-fight trackers (reset each combat)
-local fightAttackers = {}  -- set of enemy GUIDs that hit you this fight
-local fightFoeCount  = 0
+local fightAttackers = {}  -- set of enemy GUIDs currently alive that have hit you this fight
+local liveFoes       = 0   -- count of those still alive (for "Most Foes at Once")
 local fightWentLow   = false
+local fightLowPct    = 100   -- lowest HP% reached this fight (for guild "clutch survival")
 local untouchedStart = nil -- GetTime() of last hit taken (or combat start)
 HC.state.combatSnapshot = nil -- record values at combat start, for new-record announces
 local CLUTCH_THRESHOLD = 10 -- % HP that makes surviving a fight a "clutch save"
@@ -207,7 +208,10 @@ function HC.OnHealth()
     end
 
     -- Mark this fight as a "clutch" if you dipped below the clutch threshold.
-    if HC.state.inCombat and pct <= CLUTCH_THRESHOLD then fightWentLow = true end
+    if HC.state.inCombat then
+        if pct <= CLUTCH_THRESHOLD then fightWentLow = true end
+        if pct < fightLowPct then fightLowPct = pct end
+    end
 
     -- Two independent low-health reactions, each: once per dip, re-arm above
     -- threshold +5, short cooldown.
@@ -282,11 +286,18 @@ function HC.OnCombatLog()
         if srcGUID == HC.state.playerGUID then
             HC.db.killingBlows = HC.db.killingBlows + 1
             HC:UpdateDisplay()
+        elseif petGUID and srcGUID == petGUID then
+            HC.db.petKillingBlows = (HC.db.petKillingBlows or 0) + 1
+            HC:UpdateDisplay()
         end
         return
     end
 
     if sub == "UNIT_DIED" then
+        if fightAttackers[dstGUID] then        -- one of your attackers died: it's no longer "at once"
+            fightAttackers[dstGUID] = nil
+            liveFoes = liveFoes > 0 and liveFoes - 1 or 0
+        end
         if petGUID and dstGUID == petGUID then
             HC.db.petDeaths = HC.db.petDeaths + 1
             PushLog(HC.db.petDeathLog, {
@@ -314,12 +325,19 @@ function HC.OnCombatLog()
             PushIncoming(amt)
             HC.db.dmgTaken = (HC.db.dmgTaken or 0) + amt
             lastHitBy = envType
-            if envType == "Falling" and (not HC.db.highestFall or amt > HC.db.highestFall) then
-                HC.db.highestFall      = amt
-                HC.db.highestFallLevel = UnitLevel("player")
-                HC.db.highestFallZone  = GetZoneText()
-                HC:ComicEvent("highestFall")
-                HC:UpdateDisplay()
+            if envType == "Falling" then
+                -- Rank by share of max HP - a 230 fall means very different things
+                -- at 300 HP vs 5000 HP. Keep the raw amount as detail.
+                local maxhp = UnitHealthMax("player") or 0
+                local pct = maxhp > 0 and (amt / maxhp * 100) or 0
+                if pct > (HC.db.highestFallPct or 0) then
+                    HC.db.highestFallPct   = pct
+                    HC.db.highestFall      = amt
+                    HC.db.highestFallLevel = UnitLevel("player")
+                    HC.db.highestFallZone  = GetZoneText()
+                    HC:ComicEvent("highestFall")
+                    HC:UpdateDisplay()
+                end
             end
         end
         return
@@ -444,9 +462,9 @@ function HC.OnCombatLog()
 
         if srcGUID and not fightAttackers[srcGUID] then
             fightAttackers[srcGUID] = true
-            fightFoeCount = fightFoeCount + 1
-            if fightFoeCount > HC.db.mostFoes then
-                HC.db.mostFoes = fightFoeCount
+            liveFoes = liveFoes + 1   -- a foe dying decrements this (see UNIT_DIED)
+            if liveFoes > HC.db.mostFoes then
+                HC.db.mostFoes = liveFoes
                 HC:ComicEvent("mostFoes")
             end
         end
@@ -492,8 +510,9 @@ function HC.OnCombatStart()
     HC.state.combatStart = GetTime()
     HC.state.curFightDmg = 0
     wipe(fightAttackers)
-    fightFoeCount  = 0
+    liveFoes       = 0
     fightWentLow   = false
+    fightLowPct    = 100
     untouchedStart = GetTime()
     -- Snapshot record fields so combat end can detect new bests set this fight.
     HC.state.combatSnapshot = {}
@@ -503,8 +522,9 @@ end
 
 function HC.OnCombatEnd()
     if HC.state.inCombat then
+        local alive = (UnitHealth("player") or 0) > 0
         local dur = GetTime() - HC.state.combatStart
-        HC.db.fights = HC.db.fights + 1
+        if alive then HC.db.fights = HC.db.fights + 1 end  -- "Fights Survived": not the one you died in
         if dur > HC.db.longestFight then
             HC.db.longestFight     = dur
             HC.db.longestFightZone = GetZoneText()
@@ -524,11 +544,15 @@ function HC.OnCombatEnd()
             end
         end
         -- Clutch save: dropped low but lived through the fight.
-        if fightWentLow and (UnitHealth("player") or 0) > 0 then
+        if fightWentLow and alive then
             HC.db.clutchSaves = HC.db.clutchSaves + 1
             HC:ComicEvent("clutchSaves")
         end
-        if (UnitHealth("player") or 0) > 0 then HC:CheckAnnounce() end  -- only if you lived
+        if alive then
+            HC:CheckAnnounce()
+            -- Clutch survival -> guild, only for a real fight you nearly lost.
+            if HC.state.curFightDmg > 0 then HC:QueueClutch(fightLowPct) end
+        end
     end
     untouchedStart = nil
     fightWentLow   = false

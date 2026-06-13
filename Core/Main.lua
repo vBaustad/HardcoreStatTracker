@@ -25,12 +25,18 @@ StaticPopupDialogs["HST_RESET"] = {
             comic = HC.db.comic, fullAlpha = HC.db.fullAlpha, miniAlpha = HC.db.miniAlpha,
             combatTimer = HC.db.combatTimer,
             playedTotal = HC.db.playedTotal, playedLevel = HC.db.playedLevel,
+            -- The audit trail must survive a reset, or resetting would hide a
+            -- faker's tracks. Bump the reset count here.
+            resets = (HC.db.resets or 0) + 1,
+            tamperCount = HC.db.tamperCount, tamperedEver = HC.db.tamperedEver,
         }
         wipe(HC.db)
         for k, v in pairs(keep) do HC.db[k] = v end
         HC.ApplyDefaults()
+        if HC.StoreIntegrity then HC.StoreIntegrity() end  -- re-stamp the now-cleared records
         HC:UpdateDisplay()
-        print("|cffff4444Hardcore Stat Tracker|r: records reset.")
+        if HC.RefreshFull then HC:RefreshFull() end
+        print("|cffff4444Hardcore Stat Tracker|r: records reset (" .. (HC.db.resets or 0) .. " total).")
     end,
     timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
 }
@@ -144,6 +150,8 @@ HC.frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 HC.frame:RegisterEvent("CHAT_MSG_SYSTEM")
 HC.frame:RegisterEvent("PLAYER_MONEY")
 HC.frame:RegisterEvent("CHAT_MSG_MONEY")
+HC.frame:RegisterEvent("PLAYER_DEAD")
+HC.frame:RegisterEvent("PLAYER_LOGOUT")  -- last chance to write a fresh integrity stamp
 -- player drives the low-health features; party1-4 power the "players saved" stat.
 HC.frame:RegisterUnitEvent("UNIT_HEALTH", "player", "party1", "party2", "party3", "party4")
 
@@ -153,6 +161,9 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
     if not HC.db and event ~= "PLAYER_LOGIN" then return end
     if event == "PLAYER_LOGIN" then
         HC.ApplyDefaults()
+        if HC.CheckIntegrity and HC.CheckIntegrity() then
+            print("|cffff4444Hardcore Stat Tracker|r: |cffff3333saved stats were changed outside the game|r - the integrity check failed.")
+        end
         HC.OnMoney()   -- baseline current money so session income is counted
         HC.state.playerGUID = UnitGUID("player")
         HC.RestorePosition()
@@ -201,6 +212,10 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC.OnMoney()
     elseif event == "CHAT_MSG_MONEY" then
         HC.OnLootMoney(arg1)
+    elseif event == "PLAYER_DEAD" then
+        if HC.ClearAnnounce then HC:ClearAnnounce() end   -- never brag from the grave
+    elseif event == "PLAYER_LOGOUT" then
+        if HC.StoreIntegrity then HC.StoreIntegrity() end  -- sign the data being written to disk
     elseif event == "PLAYER_ENTERING_WORLD" then
         HC.UpdatePet()
         HC.RefreshGroup()

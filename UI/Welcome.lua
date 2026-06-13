@@ -42,13 +42,13 @@ function HC:ShowWelcome()
     body:SetWidth(368)
     body:SetJustifyH("LEFT")
     body:SetSpacing(3)
-    body:SetText("Your hardcore trophy case is recording: closest calls, biggest hits, "
-        .. "pet & party deaths, Mak'gora, and more.\n\n"
-        .. "The on-screen panel starts with a few core stats. There's a lot more to turn on:\n\n"
-        .. "|cffffd100-|r  Pick which stats show on the panel in |cffffd100Settings|r\n"
-        .. "|cffffd100-|r  Click |cffffd100[+]|r on the panel to see every stat with details\n"
-        .. "|cffffd100-|r  Optional fun: famous last words, record announcements,\n"
-        .. "    comic POW! splashes, mob damage warnings")
+    body:SetText("Your hardcore trophy case is recording your run's defining moments: closest "
+        .. "calls, biggest hits, heals & clutch saves, gold, pet & party deaths, Mak'gora, and more.\n\n"
+        .. "The on-screen panel shows a few core stats to start - there's plenty more to turn on:\n\n"
+        .. "|cffffd100-|r  Choose which stats appear, by category, in |cffffd100Settings|r\n"
+        .. "|cffffd100-|r  Click |cffffd100[+]|r on the panel for the full window with every stat\n"
+        .. "|cffffd100-|r  Optional flair: comic splashes, a low-health alert, famous last\n"
+        .. "    words, mob damage warnings, and rare survival brags to chat")
 
     local settingsBtn = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
     settingsBtn:SetSize(110, 22)
