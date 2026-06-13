@@ -48,7 +48,6 @@ local LAYOUT_DEFAULTS = {
     mobTooltip = true,   -- show "has hit you for X" on mob tooltips
     comicPops  = true,   -- POW/BOOM/ZAP splash on new hit records
     comicRandom = false, -- random art on every crit (mode toggle: random vs the 6 slots)
-    comicSound = false,  -- play a sound when a splash pops (opt-in)
     comicDuration = 2.0, -- seconds a splash stays on screen (incl. pop + fade)
     combatTimer = true,  -- live "In Combat" line on the mini panel
     miniHighlight = true,-- animated border on a mini row that just set a record
@@ -169,7 +168,7 @@ function HC.ApplyDefaults()
     end
 
     -- Comic splash slots: 6 configurable entries, each { art, stat, sound, x, y }.
-    -- art = "none" disables that slot. Sounds only play when comicSound is on.
+    -- art = "none" disables that slot; a slot's sound plays unless it's "none".
     local SPLASH_DEFAULTS = {
         { art = "pow",  stat = "highestCrit",   sound = "pow",  x =  150, y =  100 },
         { art = "boom", stat = "biggestMelee",  sound = "bonk", x = -170, y =   90 },

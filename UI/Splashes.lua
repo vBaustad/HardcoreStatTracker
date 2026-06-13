@@ -197,7 +197,7 @@ local function PopFrame(f, art, x, y, soundKey, cd)
     f:Show()
     f.ag:Stop(); f.ag:Play()
     f.float:Stop(); f.float:Play()
-    if HC.db.comicSound and soundKey and soundKey ~= "none" then HC.PlaySplashSound(soundKey) end
+    if soundKey and soundKey ~= "none" then HC.PlaySplashSound(soundKey) end
 end
 
 -- Record-driven splash for a configured slot. Disabled in "random art on crit"
@@ -217,12 +217,11 @@ local RANDOM_CD = 2
 function HC:RandomCritSplash()
     if not HC.db or HC.db.comicPops == false or not HC.db.comicRandom or splashPlacement then return end
     local art = HC.SPLASH_ART[math.random(#HC.SPLASH_ART)][1]
+    -- Random mode has no per-slot dropdown, so it always uses a random sound.
     local sound
-    if HC.db.comicSound then
-        local pool = {}
-        for _, s in ipairs(HC.SPLASH_SOUNDS) do if s[1] ~= "none" then pool[#pool + 1] = s[1] end end
-        if #pool > 0 then sound = pool[math.random(#pool)] end
-    end
+    local pool = {}
+    for _, s in ipairs(HC.SPLASH_SOUNDS) do if s[1] ~= "none" then pool[#pool + 1] = s[1] end end
+    if #pool > 0 then sound = pool[math.random(#pool)] end
     PopFrame(GetComicFrame(0), art, math.random(-260, 260), math.random(-150, 190), sound, RANDOM_CD)
 end
 

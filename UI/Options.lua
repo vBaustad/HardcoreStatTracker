@@ -363,10 +363,9 @@ function HC:BuildSplashOptions()
         function() return HC.db and HC.db.comicPops end,
         function(v) HC.db.comicPops = v end,
         "Master switch for the whole feature. Off = nothing pops, whatever the slots below say.")
-    masters[#masters + 1] = MakeCheck(panel, "comicsound", "Play a sound when a splash pops", 16, -98,
-        function() return HC.db and HC.db.comicSound end,
-        function(v) HC.db.comicSound = v end,
-        "Also play each slot's chosen sound when it pops. Sounds stay silent until this is on.")
+    local soundHint = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    soundHint:SetPoint("TOPLEFT", 16, -100)
+    soundHint:SetText("Sound plays per slot below - pick one, or None for silent.")
     masters[#masters + 1] = MakeSlider(panel, "comicdur", 330, -84, 1, 6, 0.5,
         function(v) return ("Show for: %.1fs"):format(v) end,
         function() return HC.db and HC.db.comicDuration or 2 end,
