@@ -140,6 +140,18 @@ function HC.OnSystemMsg(msg)
     end
 end
 
+-- Jumps: hook the jump key's function. Only count a real ground jump - skip
+-- presses while already airborne (no-op double-taps) and while swimming (space
+-- ascends in water, not a jump).
+if JumpOrAscendStart then
+    hooksecurefunc("JumpOrAscendStart", function()
+        if not HC.db then return end
+        if IsFalling() or IsSwimming() then return end
+        HC.db.jumps = (HC.db.jumps or 0) + 1
+        HC:UpdateDisplay()
+    end)
+end
+
 -- Count a zone the first time it's entered.
 function HC.VisitZone()
     if not HC.db then return end

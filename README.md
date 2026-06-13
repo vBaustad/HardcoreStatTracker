@@ -11,7 +11,7 @@
 - **Healing records** — Biggest Heal, Total Healing (effective, overheal excluded), and Players Saved (a direct heal that pulled a critically-low party member back from the brink).
 - **Pet & group** — current pet, pet deaths (with a log), Pet Killing Blows (tracked separately for pet-only challenges), party-member deaths you witnessed, and buffs you've put on other players.
 - **Wealth** — Gold Earned (lifetime income — loot, quests, vendoring), Gold Spent (lifetime outgo — vendor buys, repairs, training, postage), Gold Looted (coin straight off kills and loot), and Bags Looted (containers looted off corpses and chests — never the ones you buy).
-- **Adventure** — quests completed, zones explored, and Time Alive (your `/played`, which for a hardcore character *is* your time alive).
+- **Adventure** — quests completed, zones explored, jumps made (for fun), and Time Alive (your `/played`, which for a hardcore character *is* your time alive).
 - **Mak'gora (account-wide)** — duels won and lost, persisting across all your characters.
 - **Mob tooltips (account-wide)** — hover a mob and see "Has hit you for up to X (at lvl Y)" if it's hurt any of your characters before. Your new character inherits the warnings.
 - **Records integrity (anti-fake)** — the full window shows how many times this character's records have been reset, and runs an integrity check on the saved file. If the `SavedVariables` were hand-edited outside the game, the character is flagged. *(This catches casual file edits — it is a deterrent, not unbreakable tamper-proofing.)*

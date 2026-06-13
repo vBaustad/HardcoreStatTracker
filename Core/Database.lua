@@ -32,6 +32,7 @@ local RECORD_DEFAULTS = {
     dmgTaken       = 0,
     quests         = 0,
     zones          = 0,
+    jumps          = 0,
     buffsGiven     = 0,
     goldEarned     = 0,    -- lifetime income (copper); every positive money change
     goldSpent      = 0,    -- lifetime spending (copper); every negative money change
@@ -152,6 +153,10 @@ function HC.ApplyDefaults()
     if (HardcoreStatTrackerDB.showVersion or 0) < 9 then
         if HardcoreStatTrackerDB.show.biggestAbility == nil then HardcoreStatTrackerDB.show.biggestAbility = false end
         HardcoreStatTrackerDB.showVersion = 9
+    end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 10 then
+        if HardcoreStatTrackerDB.show.jumps == nil then HardcoreStatTrackerDB.show.jumps = false end
+        HardcoreStatTrackerDB.showVersion = 10
     end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
@@ -281,6 +286,10 @@ end
 -- session; a crash reverts both data and hash together, so it never false-flags.
 -- ---------------------------------------------------------------------------
 local INTEGRITY_SALT = "HST-v1-3f9a2c7e-stat-integrity"
+-- Bump whenever the PROTECTED list changes. A stored stamp from an older version
+-- is re-baselined (not flagged) on the next login, so adding a tracked field
+-- never false-flags an upgrading player as a file editor.
+local INTEGRITY_VER = 2
 
 -- Every value-bearing record field a faker might inflate. The three audit
 -- counters are signed too, so they can't be reset in the file without tripping
@@ -300,7 +309,7 @@ local PROTECTED = {
     "killingBlows", "petKillingBlows",
     "biggestHeal", "biggestHealSpell", "biggestHealTarget", "healingDone", "playersSaved",
     "petDeaths", "partyDeaths", "buffsGiven",
-    "quests", "zones", "goldEarned", "goldSpent", "goldLooted", "bagsLooted",
+    "quests", "zones", "jumps", "goldEarned", "goldSpent", "goldLooted", "bagsLooted",
     "resets", "tamperCount", "tamperedEver",
 }
 table.sort(PROTECTED)
@@ -321,6 +330,7 @@ end
 function HC.StoreIntegrity()
     if not HardcoreStatTrackerDB then return end
     HardcoreStatTrackerDB.integrity = HC.ComputeIntegrity()
+    HardcoreStatTrackerDB.integrityVer = INTEGRITY_VER
 end
 
 -- Returns true if a stamp exists and no longer matches the data (i.e. the file
@@ -330,6 +340,9 @@ function HC.CheckIntegrity()
     local db = HardcoreStatTrackerDB
     if not db then return false end
     if not db.integrity then return false end
+    -- Stamp from an older PROTECTED-list version: don't flag, just re-baseline at
+    -- the next logout (StoreIntegrity writes the current version).
+    if db.integrityVer ~= INTEGRITY_VER then return false end
     if db.integrity ~= HC.ComputeIntegrity() then
         db.tamperCount  = (db.tamperCount or 0) + 1
         db.tamperedEver = true

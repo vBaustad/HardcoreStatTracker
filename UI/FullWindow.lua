@@ -110,6 +110,7 @@ function HC:StatData()
     d.dmgTaken    = { label = "Total Damage Taken", value = FmtShort(HC.db.dmgTaken) }
     d.quests      = { label = "Quests Completed", value = Comma(HC.db.quests) }
     d.zones       = { label = "Zones Explored", value = Comma(HC.db.zones) }
+    d.jumps       = { label = "Jumps", value = Comma(HC.db.jumps) }
     d.goldEarned  = { label = "Gold Earned", value = GetCoinTextureString(HC.db.goldEarned or 0) }
     d.goldSpent   = { label = "Gold Spent", value = GetCoinTextureString(HC.db.goldSpent or 0) }
     d.goldLooted  = { label = "Gold Looted", value = GetCoinTextureString(HC.db.goldLooted or 0) }
@@ -196,6 +197,7 @@ local FULL_LAYOUT = {
     { header = "Adventure" },
     { key = "quests",       icon = ICON .. "INV_Scroll_08" },
     { key = "zones",        icon = ICON .. "INV_Misc_Map_01" },
+    { key = "jumps",        icon = ICON .. "Ability_Rogue_Sprint" },
     { header = "Wealth" },
     { key = "goldEarned",   icon = ICON .. "INV_Misc_Coin_01" },
     { key = "goldSpent",    icon = ICON .. "INV_Misc_Coin_04" },
