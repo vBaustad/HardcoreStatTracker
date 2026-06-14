@@ -650,6 +650,7 @@ end
 
 function HC:ToggleFull()
     if full:IsShown() then full:Hide(); return end
+    if HC.db then HC.db.fullTab = 1 end   -- always open on the main (Combat) tab
     full:SetScale((HC.db and HC.db.fullScale) or 1)   -- before positioning, so offsets line up
     local p = HC.db and HC.db.fullPoint
     full:ClearAllPoints()
