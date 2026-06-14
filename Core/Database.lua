@@ -245,6 +245,7 @@ function HC.ApplyDefaults()
     if HardcoreStatTrackerAccountDB.makgoraWon  == nil then HardcoreStatTrackerAccountDB.makgoraWon  = 0 end
     if HardcoreStatTrackerAccountDB.makgoraLost == nil then HardcoreStatTrackerAccountDB.makgoraLost = 0 end
     if HardcoreStatTrackerAccountDB.deaths      == nil then HardcoreStatTrackerAccountDB.deaths      = 0 end
+    if HardcoreStatTrackerAccountDB.memorials   == nil then HardcoreStatTrackerAccountDB.memorials   = {} end
     if HardcoreStatTrackerAccountDB.makgoraDebug == nil then HardcoreStatTrackerAccountDB.makgoraDebug = false end
     if HardcoreStatTrackerAccountDB.mobDamage == nil then HardcoreStatTrackerAccountDB.mobDamage = {} end
     HC.adb = HardcoreStatTrackerAccountDB

@@ -44,19 +44,24 @@ StaticPopupDialogs["HST_RESET"] = {
 -- Share a one-line stat summary to chat. Runs from a slash command or a button
 -- (both hardware events), so SAY/YELL go through fine.
 -- ---------------------------------------------------------------------------
-function HC:ShareStats(chan)
+function HC:ShareStats(chan, e)
     if not HC.db then return end
     chan = (chan and chan:upper()) or (IsInGroup() and "PARTY" or "SAY")
     local valid = { SAY = true, YELL = true, PARTY = true, GUILD = true, RAID = true, EMOTE = true }
     if not valid[chan] then chan = "SAY" end
-    local parts = { "[HST] " .. (UnitName("player") or "?") .. " lvl " .. (UnitLevel("player") or 0) }
-    local a = HC.LiveAlive and HC.LiveAlive()
-    if a then parts[#parts + 1] = "alive " .. FmtPlayed(a) end
-    if (HC.db.killingBlows or 0) > 0 then parts[#parts + 1] = Comma(HC.db.killingBlows) .. " kills" end
-    if (HC.db.highestCrit or 0) > 0 then parts[#parts + 1] = "biggest crit " .. Comma(HC.db.highestCrit) end
-    if HC.db.lowestPct then parts[#parts + 1] = ("closest call %d%%"):format(math.floor(HC.db.lowestPct)) end
-    local line = table.concat(parts, ", ")
-    HC.SayMessage(line:sub(1, 255), chan, true)
+    -- e = a stored memorial entry (share a fallen hero); nil = the live character.
+    local name  = (e and e.name) or UnitName("player") or "?"
+    local level = (e and e.level) or UnitLevel("player") or 0
+    local alive = (e and e.alive) or (HC.LiveAlive and HC.LiveAlive())
+    local kb    = (e and e.killingBlows) or HC.db.killingBlows
+    local crit  = (e and e.highestCrit) or HC.db.highestCrit
+    local low   = (e and e.lowestPct) or HC.db.lowestPct
+    local parts = { "[HST] " .. name .. " lvl " .. level }
+    if alive then parts[#parts + 1] = "alive " .. FmtPlayed(alive) end
+    if (kb or 0) > 0 then parts[#parts + 1] = Comma(kb) .. " kills" end
+    if (crit or 0) > 0 then parts[#parts + 1] = "biggest crit " .. Comma(crit) end
+    if low then parts[#parts + 1] = ("closest call %d%%"):format(math.floor(low)) end
+    HC.SayMessage(table.concat(parts, ", "):sub(1, 255), chan, true)
 end
 -- ---------------------------------------------------------------------------
 -- Slash command
@@ -240,10 +245,11 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC.OnLoot(arg1)
     elseif event == "PLAYER_DEAD" then
         if HC.ClearAnnounce then HC:ClearAnnounce() end   -- never brag from the grave
-        if not HC.db.died then                            -- a hardcore death: count it once, show the memorial
+        if not HC.db.died then                            -- a hardcore death: record it once, show the memorial
             HC.db.died = true
             if HC.adb then HC.adb.deaths = (HC.adb.deaths or 0) + 1 end
-            if HC.ShowMemorial then C_Timer.After(2, function() HC:ShowMemorial() end) end
+            local e = HC.RecordMemorial and HC:RecordMemorial()
+            if HC.ShowMemorial then C_Timer.After(2, function() HC:ShowMemorial(e) end) end
         end
     elseif event == "PLAYER_LOGOUT" then
         if HC.StoreIntegrity then HC.StoreIntegrity() end  -- sign the data being written to disk
