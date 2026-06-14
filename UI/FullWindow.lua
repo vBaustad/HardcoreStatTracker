@@ -146,9 +146,11 @@ full:Hide()
 tinsert(UISpecialFrames, "HardcoreStatTrackerFullFrame")  -- Escape closes the window
 HC.fullFrame = full
 
+-- Always store a TOP anchor so the window grows/shrinks downward and the top
+-- edge (title, tabs, buttons) never moves when the active tab changes height.
 local function SaveFullPos()
-    local p, _, rp, x, y = full:GetPoint()
-    if p and HC.db then HC.db.fullPoint = { p, rp, math.floor(x), math.floor(y) } end
+    local _, _, _, x, y = full:GetPoint()
+    if x and HC.db then HC.db.fullPoint = { "TOP", "TOP", math.floor(x), math.floor(y) } end
 end
 local function StartFullDrag() full.moving = true; full:StartMoving() end
 local function StopFullDrag()
@@ -265,23 +267,10 @@ local fullClose = CreateFrame("Button", nil, full, "UIPanelCloseButton")
 fullClose:SetPoint("TOPRIGHT", 2, 2)
 fullClose:SetScript("OnClick", function() full:Hide() end)
 
--- Top-left skull button: opens the death memorial / run summary.
-local memBtn = CreateFrame("Button", nil, full)
-memBtn:SetSize(20, 20)
+-- Top-left "Memorial" button: opens the death memorial / fallen-heroes roll.
+local memBtn = HC.MakeButton(full, "Memorial", 84, 20)
 memBtn:SetPoint("TOPLEFT", 8, -8)
-local memTex = memBtn:CreateTexture(nil, "ARTWORK")
-memTex:SetAllPoints()
-memTex:SetTexture("Interface\\Icons\\INV_Misc_Bone_HumanSkull_01")
-memTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-memBtn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 memBtn:SetScript("OnClick", function() if HC.ShowMemorial then HC:ShowMemorial() end end)
-memBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:AddLine("Memorial", 1, 0.82, 0)
-    GameTooltip:AddLine("Show this character's run summary.", 1, 1, 1, true)
-    GameTooltip:Show()
-end)
-memBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 local cfgBtn = HC.MakeButton(full, "Settings", 100, 22)
 cfgBtn:SetScript("OnClick", function()
@@ -652,14 +641,18 @@ function HC:RefreshFull()
     auditFrame:ClearAllPoints()
     auditFrame:SetPoint("LEFT", displayBtn, "RIGHT", 4, 0)
     auditFrame:SetPoint("RIGHT", cfgBtn, "LEFT", -4, 0)
-    full:SetHeight(-footerY + 36)
+    full:SetHeight(-footerY + 48)   -- extra padding below the footer buttons
 end
 
 function HC:ToggleFull()
     if full:IsShown() then full:Hide(); return end
     local p = HC.db and HC.db.fullPoint
     full:ClearAllPoints()
-    if p then full:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else full:SetPoint("CENTER") end
+    if p and p[1] == "TOP" then
+        full:SetPoint("TOP", UIParent, "TOP", p[3], p[4])   -- top-anchored: top edge stays put
+    else
+        full:SetPoint("TOP", UIParent, "TOP", 0, -100)      -- default / migrate old center anchor
+    end
     full:SetBackdropColor(0.05, 0.04, 0.04, (HC.db and HC.db.fullAlpha) or 0.97)
     full:SetScale((HC.db and HC.db.fullScale) or 1)
     full:Show()
