@@ -6,8 +6,8 @@
 - **Gold Spent**, **Total Damage Done**, **Jumps**, and **Biggest Ability Hit** —
   physical "yellow" abilities (Sinister Strike, Aimed Shot...) split out from
   Biggest Spell, which is now magic-only.
-- **Account milestones (account-wide):** Highest Level reached and Level 60s (how
-  many of your characters have hit max level).
+- **Account milestones (account-wide):** Highest Level reached, Level 60s (how
+  many of your characters have hit max level), and Characters Drowned.
 
 ### Memorial
 - The death memorial is now an **account-wide roll of fallen heroes** — browse the

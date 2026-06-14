@@ -162,6 +162,7 @@ HC.STATS = {
     { "jumps",        "Jumps",          function() return Num(HC.db.jumps) end },
     { "highestLevel", "Highest Level",  function() return Num(HC.adb and HC.adb.highestLevel) end },
     { "level60s",     "Level 60s",      function() return Num(HC.adb and HC.adb.level60s) end },
+    { "drowned",      "Drowned",        function() return Num(HC.adb and HC.adb.drowned) end },
     { "makgoraWon",   "Mak'gora Won",   function() return Num(HC.adb and HC.adb.makgoraWon) end },
     { "makgoraLost",  "Mak'gora Lost",  function() return Num(HC.adb and HC.adb.makgoraLost) end },
     { "buffsGiven",   "Buffs Given",    function() return Num(HC.db.buffsGiven) end },
@@ -183,7 +184,7 @@ HC.STAT_GROUPS = {
     { "Group",     { "partyDeaths", "buffsGiven" } },
     { "Adventure", { "quests", "zones", "jumps" } },
     { "Wealth",    { "goldEarned", "goldSpent", "goldLooted", "bagsLooted" } },
-    { "Account",   { "highestLevel", "level60s" } },
+    { "Account",   { "highestLevel", "level60s", "drowned" } },
     { "Mak'gora",  { "makgoraWon", "makgoraLost" } },
     { "Character", { "timeAlive" } },
 }
@@ -230,6 +231,7 @@ HC.ICONS = {
     makgoraLost  = ICONP .. "Ability_Rogue_FeignDeath",
     highestLevel = ICONP .. "Spell_ChargePositive",
     level60s     = ICONP .. "INV_Crown_01",
+    drowned      = ICONP .. "INV_Misc_Fish_02",
     buffsGiven   = ICONP .. "Spell_Holy_WordFortitude",
 }
 
@@ -273,6 +275,7 @@ HC.STAT_HELP = {
     jumps        = "How many times you've actually jumped - confirmed you left the ground. No-op presses (stunned/casting), swimming-ascend, and falling off ledges don't count. Just for fun.",
     highestLevel = "The highest level any character on this account has reached. Account-wide.",
     level60s     = "How many of your characters have reached max level (60). Account-wide.",
+    drowned      = "How many of your characters have died to drowning. Account-wide.",
     makgoraWon   = "Mak'gora duels won - ACCOUNT-WIDE, persists across all your characters. Auto-detected from system messages; record manually with /hst makgora won.",
     makgoraLost  = "Mak'gora duels lost - ACCOUNT-WIDE, your fallen characters' final duels. Record manually with /hst makgora lost.",
 }

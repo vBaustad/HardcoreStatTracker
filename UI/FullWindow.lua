@@ -119,6 +119,7 @@ function HC:StatData()
     d.makgoraLost = { label = "Mak'gora Lost", value = Comma(HC.adb and HC.adb.makgoraLost) }
     d.highestLevel = { label = "Highest Level", value = Comma(HC.adb and HC.adb.highestLevel) }
     d.level60s    = { label = "Level 60s", value = Comma(HC.adb and HC.adb.level60s) }
+    d.drowned     = { label = "Drowned", value = Comma(HC.adb and HC.adb.drowned) }
     d.buffsGiven  = { label = "Buffs Given", value = Comma(HC.db.buffsGiven) }
     return d
 end
@@ -215,6 +216,7 @@ local FULL_LAYOUT = {
     { header = "Account (all characters)" },
     { key = "highestLevel", icon = ICON .. "Spell_ChargePositive" },
     { key = "level60s",     icon = ICON .. "INV_Crown_01" },
+    { key = "drowned",      icon = ICON .. "INV_Misc_Fish_02" },
     { header = "Mak'gora (account-wide)" },
     { key = "makgoraWon",   icon = ICON .. "INV_Sword_27" },
     { key = "makgoraLost",  icon = ICON .. "Ability_Rogue_FeignDeath" },

@@ -12,7 +12,7 @@
 - **Pet & group** — current pet, pet deaths (with a log), Pet Killing Blows (tracked separately for pet-only challenges), party-member deaths you witnessed, and buffs you've put on other players.
 - **Wealth** — Gold Earned (lifetime income — loot, quests, vendoring), Gold Spent (lifetime outgo — vendor buys, repairs, training, postage), Gold Looted (coin straight off kills and loot), and Bags Looted (containers looted off corpses and chests — never the ones you buy).
 - **Adventure** — quests completed, zones explored, jumps made (for fun), and Time Alive (your `/played`, which for a hardcore character *is* your time alive).
-- **Account milestones (account-wide)** — Highest Level reached and Level 60s (how many of your characters have hit max level).
+- **Account milestones (account-wide)** — Highest Level reached, Level 60s (how many of your characters have hit max level), and Characters Drowned (because it happens).
 - **Mak'gora (account-wide)** — duels won and lost, persisting across all your characters.
 - **Mob tooltips (account-wide)** — hover a mob and see "Has hit you for up to X (at lvl Y)" if it's hurt any of your characters before. Your new character inherits the warnings.
 - **Memorial roll** — an account-wide list of your fallen heroes. When a character dies, their card is saved (level, time survived, what felled them and where, headline records). Browse the whole roll, click any name to read their card, and Share it to chat. No deaths yet? The page cheers you on to keep it that way. Open with the skull on the full window or `/hst memorial`.

@@ -174,6 +174,10 @@ function HC.ApplyDefaults()
         end
         HardcoreStatTrackerDB.showVersion = 12
     end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 13 then
+        if HardcoreStatTrackerDB.show.drowned == nil then HardcoreStatTrackerDB.show.drowned = false end
+        HardcoreStatTrackerDB.showVersion = 13
+    end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
     local lw = HardcoreStatTrackerDB.lastWords
@@ -256,6 +260,7 @@ function HC.ApplyDefaults()
     if HardcoreStatTrackerAccountDB.memorials   == nil then HardcoreStatTrackerAccountDB.memorials   = {} end
     if HardcoreStatTrackerAccountDB.highestLevel == nil then HardcoreStatTrackerAccountDB.highestLevel = 0 end
     if HardcoreStatTrackerAccountDB.level60s    == nil then HardcoreStatTrackerAccountDB.level60s    = 0 end
+    if HardcoreStatTrackerAccountDB.drowned     == nil then HardcoreStatTrackerAccountDB.drowned     = 0 end
     if HardcoreStatTrackerAccountDB.makgoraDebug == nil then HardcoreStatTrackerAccountDB.makgoraDebug = false end
     if HardcoreStatTrackerAccountDB.mobDamage == nil then HardcoreStatTrackerAccountDB.mobDamage = {} end
     HC.adb = HardcoreStatTrackerAccountDB

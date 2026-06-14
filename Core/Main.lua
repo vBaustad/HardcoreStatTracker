@@ -250,7 +250,12 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         if HC.ClearAnnounce then HC:ClearAnnounce() end   -- never brag from the grave
         if not HC.db.died then                            -- a hardcore death: record it once, show the memorial
             HC.db.died = true
-            if HC.adb then HC.adb.deaths = (HC.adb.deaths or 0) + 1 end
+            if HC.adb then
+                HC.adb.deaths = (HC.adb.deaths or 0) + 1
+                if HC.state and HC.state.lastHitBy == "Drowning" then
+                    HC.adb.drowned = (HC.adb.drowned or 0) + 1
+                end
+            end
             local e = HC.RecordMemorial and HC:RecordMemorial()
             if HC.ShowMemorial then C_Timer.After(2, function() HC:ShowMemorial(e) end) end
         end
