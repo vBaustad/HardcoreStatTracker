@@ -445,7 +445,11 @@ function HC.OnCombatLog()
 
     local changed = false
 
-    if srcGUID == HC.state.playerGUID and critical and amount > HC.db.highestCrit then
+    -- Crits/hits are direct only; a DoT tick crit isn't a "crit" record (it still
+    -- counts toward dmgTaken / DPS below).
+    local directHit = (sub ~= "SPELL_PERIODIC_DAMAGE")
+
+    if srcGUID == HC.state.playerGUID and critical and directHit and amount > HC.db.highestCrit then
         HC.db.highestCrit       = amount
         HC.db.highestCritSpell  = spellName
         HC.db.highestCritTarget = dstName
@@ -453,8 +457,8 @@ function HC.OnCombatLog()
         HC:ComicEvent("highestCrit")
     end
 
-    -- "Random art on crit" splash mode fires on EVERY crit (not just records).
-    if srcGUID == HC.state.playerGUID and critical and HC.RandomCritSplash then
+    -- "Random art on crit" splash mode fires on EVERY (direct) crit, not records.
+    if srcGUID == HC.state.playerGUID and critical and directHit and HC.RandomCritSplash then
         HC:RandomCritSplash()
     end
 
@@ -529,7 +533,7 @@ function HC.OnCombatLog()
             untouchedStart = GetTime()
         end
 
-        if amount > HC.db.biggestHit then
+        if directHit and amount > HC.db.biggestHit then
             HC.db.biggestHit       = amount
             HC.db.biggestHitSource = srcName
             HC.db.biggestHitSpell  = spellName
