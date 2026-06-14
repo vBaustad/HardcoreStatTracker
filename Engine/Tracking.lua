@@ -361,6 +361,7 @@ function HC.OnCombatLog()
             PushIncoming(amt)
             HC.db.dmgTaken = (HC.db.dmgTaken or 0) + amt
             lastHitBy = envType
+            HC.state.lastHitBy = envType
             if envType == "Falling" then
                 -- Rank by share of max HP - a 230 fall means very different things
                 -- at 300 HP vs 5000 HP. Keep the raw amount as detail.
@@ -497,6 +498,7 @@ function HC.OnCombatLog()
 
     if dstGUID == HC.state.playerGUID then
         lastHitBy   = srcName
+        HC.state.lastHitBy = srcName
         HC.state.curFightDmg = HC.state.curFightDmg + amount
         PushIncoming(amount)
         HC.db.dmgTaken = (HC.db.dmgTaken or 0) + amount

@@ -20,5 +20,6 @@ UI\MiniPanel.lua
 UI\FullWindow.lua
 UI\Splashes.lua
 UI\Welcome.lua
+UI\Memorial.lua
 UI\Options.lua
 Core\Main.lua

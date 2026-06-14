@@ -67,6 +67,8 @@ SlashCmdList.HST = function(msg)
         StaticPopup_Show("HST_RESET")
     elseif msg == "resethits" or msg == "debughits" then
         if HC.ResetHitRecords then HC:ResetHitRecords() end
+    elseif msg == "memorial" or msg == "death" then
+        if HC.ShowMemorial then HC:ShowMemorial() end
     elseif msg:match("^makgora") or msg:match("^mak'gora") then
         local arg = msg:match("(%a+)%s*$")
         if arg == "won" then
@@ -217,6 +219,11 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC.OnLoot(arg1)
     elseif event == "PLAYER_DEAD" then
         if HC.ClearAnnounce then HC:ClearAnnounce() end   -- never brag from the grave
+        if not HC.db.died then                            -- a hardcore death: count it once, show the memorial
+            HC.db.died = true
+            if HC.adb then HC.adb.deaths = (HC.adb.deaths or 0) + 1 end
+            if HC.ShowMemorial then C_Timer.After(2, function() HC:ShowMemorial() end) end
+        end
     elseif event == "PLAYER_LOGOUT" then
         if HC.StoreIntegrity then HC.StoreIntegrity() end  -- sign the data being written to disk
     elseif event == "PLAYER_ENTERING_WORLD" then

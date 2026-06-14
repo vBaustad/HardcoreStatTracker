@@ -41,6 +41,7 @@ local RECORD_DEFAULTS = {
     bagsLooted     = 0,    -- containers looted off corpses/chests (not bought)
     biggestLevelDiff = nil, biggestLevelDiffMob = nil,
     biggestLevelDiffMyLevel = nil, biggestLevelDiffZone = nil,
+    died           = false, -- this character has died (for the one-time memorial)
 }
 
 local LAYOUT_DEFAULTS = {
@@ -241,6 +242,7 @@ function HC.ApplyDefaults()
     HardcoreStatTrackerAccountDB = HardcoreStatTrackerAccountDB or {}
     if HardcoreStatTrackerAccountDB.makgoraWon  == nil then HardcoreStatTrackerAccountDB.makgoraWon  = 0 end
     if HardcoreStatTrackerAccountDB.makgoraLost == nil then HardcoreStatTrackerAccountDB.makgoraLost = 0 end
+    if HardcoreStatTrackerAccountDB.deaths      == nil then HardcoreStatTrackerAccountDB.deaths      = 0 end
     if HardcoreStatTrackerAccountDB.makgoraDebug == nil then HardcoreStatTrackerAccountDB.makgoraDebug = false end
     if HardcoreStatTrackerAccountDB.mobDamage == nil then HardcoreStatTrackerAccountDB.mobDamage = {} end
     HC.adb = HardcoreStatTrackerAccountDB

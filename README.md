@@ -14,6 +14,7 @@
 - **Adventure** — quests completed, zones explored, jumps made (for fun), and Time Alive (your `/played`, which for a hardcore character *is* your time alive).
 - **Mak'gora (account-wide)** — duels won and lost, persisting across all your characters.
 - **Mob tooltips (account-wide)** — hover a mob and see "Has hit you for up to X (at lvl Y)" if it's hurt any of your characters before. Your new character inherits the warnings.
+- **Death memorial** — when your character falls, a memorial window sums up the run: level, time survived, what felled you and where, a few headline records, and how many hardcore characters this account has now lost. Reopen any time with `/hst memorial`.
 - **Records integrity (anti-fake)** — the full window shows how many times this character's records have been reset, and runs an integrity check on the saved file. If the `SavedVariables` were hand-edited outside the game, the character is flagged. *(This catches casual file edits — it is a deterrent, not unbreakable tamper-proofing.)*
 - **Comic splashes** — optional fun: a comic-book **POW! / BOOM! / ZAP!** pops on screen when you set a new record (crit / melee / ranged by default). Each of the six slots can be turned off, dragged anywhere, linked to any record stat, and given its own sound.
 - **Famous Last Words** — optional: when you drop low, broadcast a cocky/ironic line to chat (built-in surprise pool + your own messages) and/or fire an attention alert (screen flash + sound). Independent thresholds for the chat line and the alert.
@@ -41,6 +42,7 @@
 - `/hst config` — open settings
 - `/hst splashes` — enter placement mode to drag the comic splashes
 - `/hst welcome` — show the welcome window again
+- `/hst memorial` — show this character's death memorial
 - `/hst reset` — clear this character's records (account-wide Mak'gora is kept)
 - `/hst makgora won|lost` — manually record a Mak'gora result
 - `/hst makgora debug` — print the raw Mak'gora system message (to refine auto-detection)
