@@ -43,6 +43,7 @@
 - `/hst splashes` — enter placement mode to drag the comic splashes
 - `/hst welcome` — show the welcome window again
 - `/hst memorial` — show this character's death memorial
+- `/hst share [say|party|guild|raid|yell]` — post a one-line stat summary to chat
 - `/hst reset` — clear this character's records (account-wide Mak'gora is kept)
 - `/hst makgora won|lost` — manually record a Mak'gora result
 - `/hst makgora debug` — print the raw Mak'gora system message (to refine auto-detection)

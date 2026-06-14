@@ -63,6 +63,12 @@ function HC:ShowMemorial()
         fullBtn:SetText("View Full Stats")
         fullBtn:SetScript("OnClick", function() if HC.ToggleFull then HC:ToggleFull() end end)
 
+        local shareBtn = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
+        shareBtn:SetSize(90, 22)
+        shareBtn:SetPoint("BOTTOM", 0, 14)
+        shareBtn:SetText("Share")
+        shareBtn:SetScript("OnClick", function() if HC.ShareStats then HC:ShareStats() end end)
+
         local okBtn = CreateFrame("Button", nil, w, "UIPanelButtonTemplate")
         okBtn:SetSize(90, 22)
         okBtn:SetPoint("BOTTOMRIGHT", -20, 14)

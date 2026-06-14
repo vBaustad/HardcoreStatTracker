@@ -41,6 +41,24 @@ StaticPopupDialogs["HST_RESET"] = {
     timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
 }
 -- ---------------------------------------------------------------------------
+-- Share a one-line stat summary to chat. Runs from a slash command or a button
+-- (both hardware events), so SAY/YELL go through fine.
+-- ---------------------------------------------------------------------------
+function HC:ShareStats(chan)
+    if not HC.db then return end
+    chan = (chan and chan:upper()) or (IsInGroup() and "PARTY" or "SAY")
+    local valid = { SAY = true, YELL = true, PARTY = true, GUILD = true, RAID = true, EMOTE = true }
+    if not valid[chan] then chan = "SAY" end
+    local parts = { "[HST] " .. (UnitName("player") or "?") .. " lvl " .. (UnitLevel("player") or 0) }
+    local a = HC.LiveAlive and HC.LiveAlive()
+    if a then parts[#parts + 1] = "alive " .. FmtPlayed(a) end
+    if (HC.db.killingBlows or 0) > 0 then parts[#parts + 1] = Comma(HC.db.killingBlows) .. " kills" end
+    if (HC.db.highestCrit or 0) > 0 then parts[#parts + 1] = "biggest crit " .. Comma(HC.db.highestCrit) end
+    if HC.db.lowestPct then parts[#parts + 1] = ("closest call %d%%"):format(math.floor(HC.db.lowestPct)) end
+    local line = table.concat(parts, ", ")
+    HC.SayMessage(line:sub(1, 255), chan, true)
+end
+-- ---------------------------------------------------------------------------
 -- Slash command
 -- ---------------------------------------------------------------------------
 SLASH_HST1 = "/hst"
@@ -69,6 +87,8 @@ SlashCmdList.HST = function(msg)
         if HC.ResetHitRecords then HC:ResetHitRecords() end
     elseif msg == "memorial" or msg == "death" then
         if HC.ShowMemorial then HC:ShowMemorial() end
+    elseif msg == "share" or msg:match("^share%s") then
+        HC:ShareStats(msg:match("^share%s+(%a+)"))
     elseif msg:match("^makgora") or msg:match("^mak'gora") then
         local arg = msg:match("(%a+)%s*$")
         if arg == "won" then
