@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.5.1
+
+### New stats
+- **Gold Spent**, **Total Damage Done**, **Jumps**, and **Biggest Ability Hit** —
+  physical "yellow" abilities (Sinister Strike, Aimed Shot...) split out from
+  Biggest Spell, which is now magic-only.
+
+### Memorial
+- The death memorial is now an **account-wide roll of fallen heroes** — browse the
+  list, click any name to read their card, and Share it. Empty until your first
+  death (and it roots for you to keep it that way). Open via the skull button on
+  the full window or `/hst memorial`.
+
+### Splashes
+- New **"Random art on every crit"** mode: a random art + sound at one of your six
+  positioned spots, every couple of seconds.
+- Splash sounds now play on the **Sound Effects** channel (set the volume via the
+  game's Sound Effects slider); the per-slot Sound dropdown replaced the global checkbox.
+
+### Quality of life
+- **Minimap button** (left-click: full window, right-click: settings, drag to move).
+- **`/hst share`** posts a one-line stat summary to chat.
+- Mini panel now **abbreviates big numbers** (1k / 1.5k / 1.2M), plus **Show all /
+  Hide all** buttons on the Mini Panel settings.
+- Full window: **Time Alive moved to the header**, tighter rows to fit more stats.
+
+### Fixes
+- Biggest Melee / Ranged / Spell / Ability records track **non-crit** hits (crits
+  go to Highest Crit); DoT ticks no longer count as crits or hits.
+- The integrity check is **versioned**, so adding new tracked stats never
+  false-flags an existing character as edited.
+
 ## 1.5.0
 
 A big update — new stats, a redesigned full window and settings, and an
