@@ -1,6 +1,8 @@
 local ADDON, HC = ...
 
 local Comma, FmtTime, FmtDiff, FmtShort, FmtSec, FmtPlayed = HC.Comma, HC.FmtTime, HC.FmtDiff, HC.FmtShort, HC.FmtSec, HC.FmtPlayed
+-- The mini panel is tight, so numbers there are abbreviated (1k / 1.5k / 1.2M).
+local Num = HC.FmtNum
 local LAYOUT_DEFAULTS = HC.LAYOUT_DEFAULTS
 
 -- ---------------------------------------------------------------------------
@@ -125,46 +127,46 @@ end
 HC.STATS = {
     { "timeAlive",    "Time Alive",     function() local a = HC.LiveAlive(); return a and FmtPlayed(a) end },
     { "closestCall",  "Closest Call",   function()
-        if HC.db.lowestPct then return math.floor(HC.db.lowestPct) .. "% (" .. Comma(HC.db.lowestHP) .. ")" end end },
+        if HC.db.lowestPct then return math.floor(HC.db.lowestPct) .. "% (" .. Num(HC.db.lowestHP) .. ")" end end },
     { "nearestDeath", "Nearest Death",  function() return HC.db.closestSeconds and FmtSec(HC.db.closestSeconds) end },
-    { "biggestHit",   "Biggest Hit Taken", function() return Comma(HC.db.biggestHit) end },
-    { "highestCrit",  "Highest Crit",   function() return Comma(HC.db.highestCrit) end },
-    { "biggestMelee", "Biggest Melee Hit", function() return Comma(HC.db.biggestMelee) end },
-    { "biggestRanged","Biggest Ranged Hit", function() return Comma(HC.db.biggestRanged) end },
-    { "biggestSpell", "Biggest Spell Hit", function() return Comma(HC.db.biggestSpell) end },
-    { "biggestAbility", "Biggest Ability Hit", function() return Comma(HC.db.biggestAbility) end },
-    { "biggestHeal",  "Biggest Heal",   function() return Comma(HC.db.biggestHeal) end },
-    { "healingDone",  "Total Healing",  function() return FmtShort(HC.db.healingDone) end },
-    { "playersSaved", "Players Saved",  function() return Comma(HC.db.playersSaved) end },
+    { "biggestHit",   "Biggest Hit Taken", function() return Num(HC.db.biggestHit) end },
+    { "highestCrit",  "Highest Crit",   function() return Num(HC.db.highestCrit) end },
+    { "biggestMelee", "Biggest Melee Hit", function() return Num(HC.db.biggestMelee) end },
+    { "biggestRanged","Biggest Ranged Hit", function() return Num(HC.db.biggestRanged) end },
+    { "biggestSpell", "Biggest Spell Hit", function() return Num(HC.db.biggestSpell) end },
+    { "biggestAbility", "Biggest Ability Hit", function() return Num(HC.db.biggestAbility) end },
+    { "biggestHeal",  "Biggest Heal",   function() return Num(HC.db.biggestHeal) end },
+    { "healingDone",  "Total Healing",  function() return Num(HC.db.healingDone) end },
+    { "playersSaved", "Players Saved",  function() return Num(HC.db.playersSaved) end },
     { "toughestFoe",  "Toughest Foe",   function() return HC.db.biggestLevelDiff and (FmtDiff(HC.db.biggestLevelDiff) .. " lvl") end },
     { "highestFall",  "Highest Fall",   function()
         if HC.db.highestFallPct then return math.floor(HC.db.highestFallPct) .. "%" end
-        return HC.db.highestFall and Comma(HC.db.highestFall) end },
+        return HC.db.highestFall and Num(HC.db.highestFall) end },
     { "longestFight", "Longest Fight",  function() return FmtTime(HC.db.longestFight) end },
-    { "mostDmgFight", "Most Dmg Taken / Fight", function() return Comma(HC.db.mostDmgFight) end },
-    { "killingBlows", "Killing Blows",  function() return Comma(HC.db.killingBlows) end },
-    { "panic",        "Panic Moments",  function() return Comma(HC.db.panicMoments) end },
-    { "fights",       "Fights Survived", function() return Comma(HC.db.fights) end },
+    { "mostDmgFight", "Most Dmg Taken / Fight", function() return Num(HC.db.mostDmgFight) end },
+    { "killingBlows", "Killing Blows",  function() return Num(HC.db.killingBlows) end },
+    { "panic",        "Panic Moments",  function() return Num(HC.db.panicMoments) end },
+    { "fights",       "Fights Survived", function() return Num(HC.db.fights) end },
     { "currentPet",   "Current Pet",    function()
         if UnitExists("pet") and not UnitIsDead("pet") then return UnitName("pet") end end },
-    { "petDeaths",    "Pet Deaths",     function() return Comma(HC.db.petDeaths) end },
-    { "petKillingBlows", "Pet Killing Blows", function() return Comma(HC.db.petKillingBlows) end },
-    { "partyDeaths",  "Party Deaths",   function() return Comma(HC.db.partyDeaths) end },
-    { "mostFoes",     "Most Foes at Once", function() return Comma(HC.db.mostFoes) end },
-    { "clutchSaves",  "Clutch Saves",   function() return Comma(HC.db.clutchSaves) end },
+    { "petDeaths",    "Pet Deaths",     function() return Num(HC.db.petDeaths) end },
+    { "petKillingBlows", "Pet Killing Blows", function() return Num(HC.db.petKillingBlows) end },
+    { "partyDeaths",  "Party Deaths",   function() return Num(HC.db.partyDeaths) end },
+    { "mostFoes",     "Most Foes at Once", function() return Num(HC.db.mostFoes) end },
+    { "clutchSaves",  "Clutch Saves",   function() return Num(HC.db.clutchSaves) end },
     { "untouched",    "Untouched Streak", function() return FmtTime(HC.db.untouched) end },
-    { "dmgTaken",     "Total Dmg Taken", function() return FmtShort(HC.db.dmgTaken) end },
-    { "dmgDone",      "Total Dmg Done", function() return FmtShort(HC.db.dmgDone) end },
-    { "quests",       "Quests Completed", function() return Comma(HC.db.quests) end },
-    { "zones",        "Zones Explored", function() return Comma(HC.db.zones) end },
-    { "jumps",        "Jumps",          function() return Comma(HC.db.jumps) end },
-    { "makgoraWon",   "Mak'gora Won",   function() return Comma(HC.adb and HC.adb.makgoraWon) end },
-    { "makgoraLost",  "Mak'gora Lost",  function() return Comma(HC.adb and HC.adb.makgoraLost) end },
-    { "buffsGiven",   "Buffs Given",    function() return Comma(HC.db.buffsGiven) end },
+    { "dmgTaken",     "Total Dmg Taken", function() return Num(HC.db.dmgTaken) end },
+    { "dmgDone",      "Total Dmg Done", function() return Num(HC.db.dmgDone) end },
+    { "quests",       "Quests Completed", function() return Num(HC.db.quests) end },
+    { "zones",        "Zones Explored", function() return Num(HC.db.zones) end },
+    { "jumps",        "Jumps",          function() return Num(HC.db.jumps) end },
+    { "makgoraWon",   "Mak'gora Won",   function() return Num(HC.adb and HC.adb.makgoraWon) end },
+    { "makgoraLost",  "Mak'gora Lost",  function() return Num(HC.adb and HC.adb.makgoraLost) end },
+    { "buffsGiven",   "Buffs Given",    function() return Num(HC.db.buffsGiven) end },
     { "goldEarned",   "Gold Earned",    function() return GetCoinTextureString(HC.db.goldEarned or 0) end },
     { "goldSpent",    "Gold Spent",     function() return GetCoinTextureString(HC.db.goldSpent or 0) end },
     { "goldLooted",   "Gold Looted",    function() return GetCoinTextureString(HC.db.goldLooted or 0) end },
-    { "bagsLooted",   "Bags Looted",    function() return Comma(HC.db.bagsLooted) end },
+    { "bagsLooted",   "Bags Looted",    function() return Num(HC.db.bagsLooted) end },
 }
 
 -- Stats grouped by category (mirrors the full window's sections). Used by the
@@ -327,7 +329,7 @@ function HC:UpdateDisplay()
 
     if HC.state.inCombat and HC.db.combatTimer ~= false then
         addRow(HC.ICONS.longestFight, "In Combat " .. FmtTime(GetTime() - HC.state.combatStart),
-            "|cffff9900" .. Comma(HC.state.curFightDmg) .. "|r", 1, 0.6, 0)
+            "|cffff9900" .. Num(HC.state.curFightDmg) .. "|r", 1, 0.6, 0)
     end
 
     for j = idx + 1, #miniRows do miniRows[j]:Hide() end

@@ -20,6 +20,22 @@ function HC.FmtDiff(d)
     return (d >= 0) and ("+" .. d) or tostring(d)
 end
 
+-- Compact number for tight spaces (the mini panel): 950 -> "950", 1000 -> "1k",
+-- 1500 -> "1.5k", 12345 -> "12.3k", 123456 -> "123k", 1.5e6 -> "1.5M".
+function HC.FmtNum(n)
+    n = math.floor((n or 0) + 0.5)
+    if n >= 1e6 then
+        local s = ("%.1f"):format(n / 1e6):gsub("%.0$", "")
+        return s .. "M"
+    elseif n >= 1000 then
+        local v = n / 1000
+        if v >= 100 then return math.floor(v + 0.5) .. "k" end
+        local s = ("%.1f"):format(v):gsub("%.0$", "")
+        return s .. "k"
+    end
+    return tostring(n)
+end
+
 function HC.FmtShort(n)
     n = n or 0
     if n >= 1e6 then return string.format("%.1fM", n / 1e6) end
