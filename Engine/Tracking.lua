@@ -445,6 +445,11 @@ function HC.OnCombatLog()
 
     local changed = false
 
+    -- Lifetime damage you've dealt (every damage event you source, incl. DoTs).
+    if srcGUID == HC.state.playerGUID then
+        HC.db.dmgDone = (HC.db.dmgDone or 0) + amount
+    end
+
     -- Crits/hits are direct only; a DoT tick crit isn't a "crit" record (it still
     -- counts toward dmgTaken / DPS below).
     local directHit = (sub ~= "SPELL_PERIODIC_DAMAGE")

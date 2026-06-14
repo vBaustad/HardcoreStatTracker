@@ -30,6 +30,7 @@ local RECORD_DEFAULTS = {
     clutchSaves    = 0,
     untouched      = 0,
     dmgTaken       = 0,
+    dmgDone        = 0,
     quests         = 0,
     zones          = 0,
     jumps          = 0,
@@ -157,6 +158,10 @@ function HC.ApplyDefaults()
     if (HardcoreStatTrackerDB.showVersion or 0) < 10 then
         if HardcoreStatTrackerDB.show.jumps == nil then HardcoreStatTrackerDB.show.jumps = false end
         HardcoreStatTrackerDB.showVersion = 10
+    end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 11 then
+        if HardcoreStatTrackerDB.show.dmgDone == nil then HardcoreStatTrackerDB.show.dmgDone = false end
+        HardcoreStatTrackerDB.showVersion = 11
     end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
@@ -299,7 +304,7 @@ local PROTECTED = {
     "closestSeconds", "closestSecHP", "closestSecLevel", "closestSecZone", "closestSecSource",
     "biggestHit", "biggestHitSource", "biggestHitSpell", "biggestHitLevel", "biggestHitZone",
     "highestFall", "highestFallPct", "highestFallLevel", "highestFallZone",
-    "panicMoments", "clutchSaves", "untouched", "mostFoes", "fights", "dmgTaken",
+    "panicMoments", "clutchSaves", "untouched", "mostFoes", "fights", "dmgTaken", "dmgDone",
     "longestFight", "longestFightZone", "mostDmgFight", "mostDmgFightZone",
     "biggestLevelDiff", "biggestLevelDiffMob", "biggestLevelDiffMyLevel", "biggestLevelDiffZone",
     "highestCrit", "highestCritSpell", "highestCritTarget",

@@ -107,6 +107,7 @@ function HC:StatData()
     d.clutchSaves = { label = "Clutch Saves", value = Comma(HC.db.clutchSaves) }
     d.untouched   = { label = "Untouched Streak", value = FmtTime(HC.db.untouched) }
     d.dmgTaken    = { label = "Total Damage Taken", value = FmtShort(HC.db.dmgTaken) }
+    d.dmgDone     = { label = "Total Damage Done", value = FmtShort(HC.db.dmgDone) }
     d.quests      = { label = "Quests Completed", value = Comma(HC.db.quests) }
     d.zones       = { label = "Zones Explored", value = Comma(HC.db.zones) }
     d.jumps       = { label = "Jumps", value = Comma(HC.db.jumps) }
@@ -179,6 +180,7 @@ local FULL_LAYOUT = {
     { key = "biggestSpell", icon = ICON .. "Spell_Fire_FlameBolt" },
     { key = "biggestAbility", icon = ICON .. "Ability_Warrior_SavageBlow" },
     { key = "killingBlows", icon = ICON .. "Ability_Rogue_Ambush" },
+    { key = "dmgDone",      icon = ICON .. "Spell_Fire_Fireball02" },
     { key = "longestFight", icon = ICON .. "Ability_DualWield" },
     { key = "mostDmgFight", icon = ICON .. "Spell_Fire_Fireball02" },
     { key = "toughestFoe",  icon = ICON .. "INV_Misc_Head_Dragon_01" },
