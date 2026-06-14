@@ -158,7 +158,7 @@ full:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then
 full:SetScript("OnMouseUp", function() StopFullDrag() end)
 
 -- Layout: ordered sections (header rows) and stat rows with an icon each.
-local FULL_W, PAD, HEADER_H, ROW_BASE = 540, 12, 50, 24
+local FULL_W, PAD, HEADER_H, ROW_BASE = 540, 12, 50, 22
 local ICON = "Interface\\Icons\\"
 local FULL_LAYOUT = {
     { header = "Survival" },
@@ -397,7 +397,7 @@ local function CreateRow()
     r.left:SetFont(STDFONT, 11, "")    -- quiet labels...
     r.left:SetJustifyH("LEFT")
     r.right = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    r.right:SetFont(STDFONT, 15, "")   -- ...loud numbers
+    r.right:SetFont(STDFONT, 13, "")   -- ...loud numbers
     r.right:SetPoint("TOPRIGHT", -4, -3)
     r.right:SetJustifyH("RIGHT")
     r.sub = r:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
