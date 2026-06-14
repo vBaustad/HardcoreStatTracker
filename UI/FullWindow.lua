@@ -158,7 +158,7 @@ full:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then
 full:SetScript("OnMouseUp", function() StopFullDrag() end)
 
 -- Layout: ordered sections (header rows) and stat rows with an icon each.
-local FULL_W, PAD, HEADER_H, ROW_BASE = 540, 12, 50, 22
+local FULL_W, PAD, HEADER_H, ROW_BASE = 540, 12, 62, 22
 local ICON = "Interface\\Icons\\"
 local FULL_LAYOUT = {
     { header = "Survival" },
@@ -205,8 +205,6 @@ local FULL_LAYOUT = {
     { header = "Mak'gora (account-wide)" },
     { key = "makgoraWon",   icon = ICON .. "INV_Sword_27" },
     { key = "makgoraLost",  icon = ICON .. "Ability_Rogue_FeignDeath" },
-    { header = "Character" },
-    { key = "timeAlive",    icon = ICON .. "INV_Misc_PocketWatch_01" },
 }
 
 full:SetWidth(FULL_W)
@@ -217,6 +215,10 @@ fullTitle:SetText("|cffff4444Hardcore Stat Tracker|r")
 
 local fullChar = full:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 fullChar:SetPoint("TOP", 0, -30)
+
+-- Time Alive lives in the header (it's THE hardcore stat), freeing a row below.
+local aliveLine = full:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+aliveLine:SetPoint("TOP", 0, -44)
 
 -- Audit line: reset count + (if flagged) a tamper warning. A hoverable band that
 -- carries the tooltip; positioned in the footer between the two buttons by
@@ -357,8 +359,8 @@ displayBtn:SetScript("OnClick", function() HC:ToggleFullAdjust() end)
 
 local divider = full:CreateTexture(nil, "ARTWORK")
 divider:SetColorTexture(0.6, 0.1, 0.1, 0.8)
-divider:SetPoint("TOPLEFT", PAD, -46)
-divider:SetPoint("TOPRIGHT", -PAD, -46)
+divider:SetPoint("TOPLEFT", PAD, -58)
+divider:SetPoint("TOPRIGHT", -PAD, -58)
 divider:SetHeight(1)
 
 -- Reusable row pool (icon + label + right-aligned value + optional sub-line + bar)
@@ -496,6 +498,15 @@ function HC:RefreshFull()
     fullChar:SetText(("|cff%02x%02x%02x%s|r   Level %d %s"):format(
         math.floor(c.r * 255), math.floor(c.g * 255), math.floor(c.b * 255),
         cname, UnitLevel("player"), className or ""))
+
+    local a, lt = HC.LiveAlive(), HC.LiveLevelTime()
+    if a then
+        local t = "|cff4dff4dAlive: " .. FmtPlayed(a) .. "|r"
+        if lt then t = t .. "   |cff888888this level: " .. FmtPlayed(lt) .. "|r" end
+        aliveLine:SetText(t)
+    else
+        aliveLine:SetText("")
+    end
 
     local resets = HC.db.resets or 0
     local audit = ("|cff888888Stat resets:|r |cffffd100%d|r"):format(resets)
