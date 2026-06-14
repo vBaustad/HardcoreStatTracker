@@ -58,6 +58,8 @@ local LAYOUT_DEFAULTS = {
     fullAlpha  = 0.97,   -- full-window background opacity
     fullScale  = 1.0,    -- full-window scale (for high-res / readability)
     miniAlpha  = 0.8,    -- mini-panel background opacity
+    minimapButton = true,-- show a minimap button
+    minimapAngle  = 200, -- minimap button position around the ring (degrees)
     point      = { "CENTER", "CENTER", 250, 0 },
 }
 

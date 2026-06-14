@@ -190,6 +190,10 @@ function HC:BuildOptions()
         function() return HC.db and HC.db.mobTooltip end,
         function(v) HC.db.mobTooltip = v end,
         "Adds \"Has hit you for up to X\" to the tooltip of any mob that has hurt one of your characters before.")
+    chk("minimap", "Show a minimap button", 16, -252,
+        function() return HC.db and HC.db.minimapButton end,
+        function(v) HC.db.minimapButton = v; if HC.ApplyMinimapButton then HC:ApplyMinimapButton() end end,
+        "A button on the minimap: left-click for the full window, right-click for settings, drag to reposition.")
 
     -- RIGHT: size / opacity sliders, grouped per window -------------------------
     MakeHeader(panel, "Mini panel", 330, -78)

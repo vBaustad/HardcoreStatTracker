@@ -171,6 +171,7 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC.state.playerGUID = UnitGUID("player")
         HC.RestorePosition()
         HC:ApplyMiniAlpha()
+        if HC.ApplyMinimapButton then HC:ApplyMinimapButton() end
         if HC.BuildOptions then HC:BuildOptions() end
         HC.UpdatePet()
         HC:UpdateDisplay()
