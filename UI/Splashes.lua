@@ -223,7 +223,12 @@ function HC:RandomCritSplash()
     local pool = {}
     for _, s in ipairs(HC.SPLASH_SOUNDS) do if s[1] ~= "none" then pool[#pool + 1] = s[1] end end
     if #pool > 0 then sound = pool[math.random(#pool)] end
-    PopFrame(GetComicFrame(0), art, math.random(-260, 260), math.random(-150, 190), sound, RANDOM_CD)
+    -- Land at a random one of the 6 positioned spots (jittered), so the player
+    -- controls where random splashes can appear via Position splashes.
+    local spot = HC.db.comic[math.random(HC.SPLASH_SLOTS)]
+    local x = (spot and spot.x or 0) + math.random(-25, 25)
+    local y = (spot and spot.y or 0) + math.random(-25, 25)
+    PopFrame(GetComicFrame(0), art, x, y, sound, RANDOM_CD)
 end
 
 -- Remember when a record was set, so the full window can flag it as "new!".
@@ -342,7 +347,9 @@ function HC:SetSplashPlacement(on)
     splashPlacement = on
     for slot = 1, HC.SPLASH_SLOTS do
         local conf = HC.db.comic[slot]
-        local active = conf and conf.art ~= "none"
+        -- Specific mode positions the enabled slots; random mode positions ALL 6
+        -- (they are the spots a random crit splash can land on).
+        local active = conf and (HC.db.comicRandom or conf.art ~= "none")
         local f = comicFrames[slot]
         if splashPlacement and active then
             f = GetComicFrame(slot)
@@ -350,7 +357,10 @@ function HC:SetSplashPlacement(on)
             f.float:Stop()
             f:EnableMouse(true)
             f:SetAlpha(1)
-            f.tex:SetTexture(MEDIA .. conf.art)
+            -- Show the slot's art, or a sample (random-mode slots may be "none").
+            local showArt = (conf.art and conf.art ~= "none") and conf.art
+                or HC.SPLASH_ART[((slot - 1) % #HC.SPLASH_ART) + 1][1]
+            f.tex:SetTexture(MEDIA .. showArt)
             f.tex:SetRotation(0)
             f:ClearAllPoints()
             f:SetPoint("CENTER", UIParent, "CENTER", conf.x, conf.y)

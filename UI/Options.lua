@@ -374,7 +374,7 @@ function HC:BuildSplashOptions()
     masters[#masters + 1] = MakeCheck(panel, "comicrandom", "Random art on every crit", 16, -98,
         function() return HC.db and HC.db.comicRandom end,
         function(v) HC.db.comicRandom = v; if panel._splashRefresh then panel._splashRefresh() end end,
-        "Instead of the specific slots below, pop a RANDOM comic art on every crit (about every 2s), cycling through all arts and all sounds. The slot settings are ignored while this is on.")
+        "Pop a RANDOM comic art on every crit (about every 2s), cycling through all arts and sounds, at a random one of your 6 spots. The slots' art/trigger/sound are ignored, but Position splashes still sets where they can appear.")
 
     -- Art options = "Off" plus every art texture.
     local ART_OPTS = { { "none", "Off" } }
