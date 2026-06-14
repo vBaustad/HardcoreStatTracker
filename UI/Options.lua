@@ -279,6 +279,22 @@ function HC:BuildStatsOptions()
 
     local controls = {}
 
+    -- Show all / Hide all every stat at once (handy now there are ~35).
+    local function SetAllStats(v)
+        for _, s in ipairs(HC.STATS) do HC:SetVisible(s[1], v) end
+        RefreshControls(controls)
+    end
+    local showAllBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    showAllBtn:SetSize(80, 22)
+    showAllBtn:SetPoint("TOPRIGHT", -100, -16)
+    showAllBtn:SetText("Show all")
+    showAllBtn:SetScript("OnClick", function() SetAllStats(true) end)
+    local hideAllBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    hideAllBtn:SetSize(80, 22)
+    hideAllBtn:SetPoint("TOPRIGHT", -14, -16)
+    hideAllBtn:SetText("Hide all")
+    hideAllBtn:SetScript("OnClick", function() SetAllStats(false) end)
+
     -- Render one category (header + stats in 3 aligned columns) into parent at y;
     -- returns the next y below it.
     local function renderCategory(parent, gtitle, y)
