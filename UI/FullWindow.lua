@@ -146,18 +146,26 @@ full:Hide()
 tinsert(UISpecialFrames, "HardcoreStatTrackerFullFrame")  -- Escape closes the window
 HC.fullFrame = full
 
--- Always store a TOP anchor so the window grows/shrinks downward and the top
--- edge (title, tabs, buttons) never moves when the active tab changes height.
-local function SaveFullPos()
-    local _, _, _, x, y = full:GetPoint()
-    if x and HC.db then HC.db.fullPoint = { "TOP", "TOP", math.floor(x), math.floor(y) } end
+-- After a move, re-anchor the LIVE frame by its TOP (scale-corrected) and save
+-- that, so height changes only grow downward - the top edge (title, tabs,
+-- buttons) never shifts when the active tab changes.
+local function ReanchorTop()
+    local r = full:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    local cx = full:GetCenter()
+    local topU = full:GetTop()
+    if not (cx and topU) then return end
+    local xOfs = cx * r - UIParent:GetWidth() / 2
+    local yOfs = topU * r - UIParent:GetHeight()
+    full:ClearAllPoints()
+    full:SetPoint("TOP", UIParent, "TOP", xOfs, yOfs)
+    if HC.db then HC.db.fullPoint = { "TOP", "TOP", math.floor(xOfs), math.floor(yOfs) } end
 end
 local function StartFullDrag() full.moving = true; full:StartMoving() end
 local function StopFullDrag()
     if not full.moving then return end
     full.moving = false
     full:StopMovingOrSizing()
-    SaveFullPos()
+    ReanchorTop()
 end
 full:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then StartFullDrag() end end)
 full:SetScript("OnMouseUp", function() StopFullDrag() end)
