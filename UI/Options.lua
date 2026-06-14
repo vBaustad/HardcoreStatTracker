@@ -385,7 +385,7 @@ function HC:BuildSplashOptions()
         "Master switch for the whole feature. Off = nothing pops, whatever the slots below say.")
     local soundHint = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     soundHint:SetPoint("TOPLEFT", 16, -120)
-    soundHint:SetText("Sound plays per slot below - pick one, or None for silent.")
+    soundHint:SetText("Sound plays per slot below (None = silent), on the Sound Effects channel - set its volume in the game's Sound options.")
     masters[#masters + 1] = MakeSlider(panel, "comicdur", 330, -84, 1, 6, 0.5,
         function(v) return ("Show for: %.1fs"):format(v) end,
         function() return HC.db and HC.db.comicDuration or 2 end,

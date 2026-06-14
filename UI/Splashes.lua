@@ -51,9 +51,12 @@ local MEDIA  = "Interface\\AddOns\\HardcoreStatTracker\\Media\\"
 local SOUNDS = "Interface\\AddOns\\HardcoreStatTracker\\Sounds\\"
 
 -- Play a splash sound by key (shared with the settings preview). "none"/nil is silent.
+-- Splash pops are sound effects, so they ride the "Sound Effects" channel - the
+-- player can raise/lower that in the game's Sound options independently of music
+-- and master volume. (The API has no per-sound volume.)
 function HC.PlaySplashSound(soundKey)
     if soundKey and soundKey ~= "none" then
-        PlaySoundFile(SOUNDS .. soundKey .. ".ogg", "Master")
+        PlaySoundFile(SOUNDS .. soundKey .. ".ogg", "SFX")
     end
 end
 
