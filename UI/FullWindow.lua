@@ -283,9 +283,7 @@ memBtn:SetScript("OnEnter", function(self)
 end)
 memBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-local cfgBtn = CreateFrame("Button", nil, full, "UIPanelButtonTemplate")
-cfgBtn:SetSize(100, 20)
-cfgBtn:SetText("Settings")
+local cfgBtn = HC.MakeButton(full, "Settings", 100, 22)
 cfgBtn:SetScript("OnClick", function()
     full:Hide()                       -- get out of the way of the settings window
     if HC.OpenOptions then HC:OpenOptions() end
@@ -295,9 +293,7 @@ end)
 -- size/opacity). The popup is parented to the screen (NOT the full window), so
 -- scaling the window can't move its own slider out from under the cursor. These
 -- same controls also live on the Settings page; both read/write the saved vars.
-local displayBtn = CreateFrame("Button", nil, full, "UIPanelButtonTemplate")
-displayBtn:SetSize(100, 20)
-displayBtn:SetText("Display")
+local displayBtn = HC.MakeButton(full, "Display", 100, 22)
 
 local adjust = CreateFrame("Frame", "HardcoreStatTrackerFullAdjust", UIParent, "BackdropTemplate")
 adjust:SetSize(240, 290)
@@ -402,10 +398,8 @@ do
     local gap = 4
     local tw = (FULL_W - PAD * 2 - gap * (#FULL_TABS - 1)) / #FULL_TABS
     for i, t in ipairs(FULL_TABS) do
-        local b = CreateFrame("Button", nil, full, "UIPanelButtonTemplate")
-        b:SetSize(tw, 20)
+        local b = HC.MakeButton(full, t.name, tw, 21)
         b:SetPoint("TOPLEFT", PAD + (i - 1) * (tw + gap), -64)
-        b:SetText(t.name)
         b:SetScript("OnClick", function()
             if HC.db then HC.db.fullTab = i end
             HC:RefreshFull()
@@ -576,7 +570,7 @@ function HC:RefreshFull()
     local tab = HC.db.fullTab or 1
     if tab < 1 or tab > #FULL_TABS then tab = 1 end
     for ti, b in ipairs(tabButtons) do
-        if ti == tab then b:Disable() else b:Enable() end
+        b:SetSelected(ti == tab)
     end
     local activeSections = FULL_TABS[tab].sections
 

@@ -73,3 +73,45 @@ function HC.Hash(s)
 end
 
 HC.STDFONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+
+-- A button styled like the addon's dark/red panels (instead of the default gold
+-- WoW button). Supports :SetText(t), :GetText(), :SetSelected(on) and a hover
+-- highlight. Set its OnClick/OnEnter as usual.
+function HC.MakeButton(parent, text, w, h)
+    local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    b:SetSize(w or 100, h or 22)
+    b:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    fs:SetPoint("CENTER", 0, 0)
+    fs:SetText(text or "")
+    b._fs = fs
+    local function paint(self)
+        if self._selected then
+            self:SetBackdropColor(0.45, 0.12, 0.12, 0.95)
+            self:SetBackdropBorderColor(1, 0.45, 0.45, 1)
+            fs:SetTextColor(1, 0.95, 0.7)
+        elseif self._hover then
+            self:SetBackdropColor(0.22, 0.13, 0.13, 0.95)
+            self:SetBackdropBorderColor(0.85, 0.25, 0.25, 1)
+            fs:SetTextColor(1, 0.9, 0.6)
+        else
+            self:SetBackdropColor(0.12, 0.10, 0.10, 0.9)
+            self:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
+            fs:SetTextColor(0.85, 0.82, 0.82)
+        end
+    end
+    b:HookScript("OnEnter", function(self) self._hover = true; paint(self) end)
+    b:HookScript("OnLeave", function(self) self._hover = false; paint(self) end)
+    b:HookScript("OnMouseDown", function(self) fs:SetPoint("CENTER", 0, -1) end)
+    b:HookScript("OnMouseUp", function(self) fs:SetPoint("CENTER", 0, 0) end)
+    b.SetText = function(self, t) self._fs:SetText(t) end
+    b.GetText = function(self) return self._fs:GetText() end
+    b.SetSelected = function(self, on) self._selected = on; paint(self) end
+    paint(b)
+    return b
+end
