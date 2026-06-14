@@ -146,19 +146,15 @@ full:Hide()
 tinsert(UISpecialFrames, "HardcoreStatTrackerFullFrame")  -- Escape closes the window
 HC.fullFrame = full
 
--- After a move, re-anchor the LIVE frame by its TOP (scale-corrected) and save
--- that, so height changes only grow downward - the top edge (title, tabs,
--- buttons) never shifts when the active tab changes.
+-- Re-anchor the LIVE frame by its top-left (in the frame's own coordinate space,
+-- so no scale math and no snapping) and save it. Height changes then only grow
+-- downward - the top edge (title, tabs, buttons) never shifts on tab change.
 local function ReanchorTop()
-    local r = full:GetEffectiveScale() / UIParent:GetEffectiveScale()
-    local cx = full:GetCenter()
-    local topU = full:GetTop()
-    if not (cx and topU) then return end
-    local xOfs = cx * r - UIParent:GetWidth() / 2
-    local yOfs = topU * r - UIParent:GetHeight()
+    local left, top = full:GetLeft(), full:GetTop()
+    if not (left and top) then return end
     full:ClearAllPoints()
-    full:SetPoint("TOP", UIParent, "TOP", xOfs, yOfs)
-    if HC.db then HC.db.fullPoint = { "TOP", "TOP", math.floor(xOfs), math.floor(yOfs) } end
+    full:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    if HC.db then HC.db.fullPoint = { "TOPLEFT", "BOTTOMLEFT", math.floor(left), math.floor(top) } end
 end
 local function StartFullDrag() full.moving = true; full:StartMoving() end
 local function StopFullDrag()
@@ -654,17 +650,18 @@ end
 
 function HC:ToggleFull()
     if full:IsShown() then full:Hide(); return end
+    full:SetScale((HC.db and HC.db.fullScale) or 1)   -- before positioning, so offsets line up
     local p = HC.db and HC.db.fullPoint
     full:ClearAllPoints()
-    if p and p[1] == "TOP" then
-        full:SetPoint("TOP", UIParent, "TOP", p[3], p[4])   -- top-anchored: top edge stays put
+    if p and p[1] == "TOPLEFT" then
+        full:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", p[3], p[4])  -- top-anchored: top stays put
     else
-        full:SetPoint("TOP", UIParent, "TOP", 0, -100)      -- default / migrate old center anchor
+        full:SetPoint("CENTER", UIParent, "CENTER", 0, 0)            -- first time: open centered
     end
     full:SetBackdropColor(0.05, 0.04, 0.04, (HC.db and HC.db.fullAlpha) or 0.97)
-    full:SetScale((HC.db and HC.db.fullScale) or 1)
     full:Show()
     HC:RefreshFull()
+    if not (p and p[1] == "TOPLEFT") then ReanchorTop() end  -- pin the centered default by its top
 end
 
 -- Keep the full window live while it's open (OnUpdate only fires when shown).
