@@ -364,17 +364,17 @@ function HC:BuildSplashOptions()
         function(v) HC.db.comicPops = v end,
         "Master switch for the whole feature. Off = nothing pops, whatever the slots below say.")
     local soundHint = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    soundHint:SetPoint("TOPLEFT", 16, -100)
+    soundHint:SetPoint("TOPLEFT", 16, -120)
     soundHint:SetText("Sound plays per slot below - pick one, or None for silent.")
     masters[#masters + 1] = MakeSlider(panel, "comicdur", 330, -84, 1, 6, 0.5,
         function(v) return ("Show for: %.1fs"):format(v) end,
         function() return HC.db and HC.db.comicDuration or 2 end,
         function(v) HC.db.comicDuration = v end,
         "How long each splash stays on screen, start to finish (pop-in + hold + fade-out).")
-    masters[#masters + 1] = MakeCheck(panel, "comicrandom", "Random art on every crit", 330, -116,
+    masters[#masters + 1] = MakeCheck(panel, "comicrandom", "Random art on every crit", 16, -98,
         function() return HC.db and HC.db.comicRandom end,
         function(v) HC.db.comicRandom = v; if panel._splashRefresh then panel._splashRefresh() end end,
-        "Instead of the specific slots below, pop a RANDOM comic art on every crit (about every 2s), with a random sound. The slot settings are ignored while this is on.")
+        "Instead of the specific slots below, pop a RANDOM comic art on every crit (about every 2s), cycling through all arts and all sounds. The slot settings are ignored while this is on.")
 
     -- Art options = "Off" plus every art texture.
     local ART_OPTS = { { "none", "Off" } }
