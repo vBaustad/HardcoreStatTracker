@@ -42,6 +42,7 @@ local RECORD_DEFAULTS = {
     biggestLevelDiff = nil, biggestLevelDiffMob = nil,
     biggestLevelDiffMyLevel = nil, biggestLevelDiffZone = nil,
     died           = false, -- this character has died (for the one-time memorial)
+    counted60      = false, -- this character has been counted toward account "Level 60s"
 }
 
 local LAYOUT_DEFAULTS = {
@@ -166,6 +167,12 @@ function HC.ApplyDefaults()
         if HardcoreStatTrackerDB.show.dmgDone == nil then HardcoreStatTrackerDB.show.dmgDone = false end
         HardcoreStatTrackerDB.showVersion = 11
     end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 12 then
+        for _, k in ipairs({ "highestLevel", "level60s" }) do
+            if HardcoreStatTrackerDB.show[k] == nil then HardcoreStatTrackerDB.show[k] = false end
+        end
+        HardcoreStatTrackerDB.showVersion = 12
+    end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
     local lw = HardcoreStatTrackerDB.lastWords
@@ -246,6 +253,8 @@ function HC.ApplyDefaults()
     if HardcoreStatTrackerAccountDB.makgoraLost == nil then HardcoreStatTrackerAccountDB.makgoraLost = 0 end
     if HardcoreStatTrackerAccountDB.deaths      == nil then HardcoreStatTrackerAccountDB.deaths      = 0 end
     if HardcoreStatTrackerAccountDB.memorials   == nil then HardcoreStatTrackerAccountDB.memorials   = {} end
+    if HardcoreStatTrackerAccountDB.highestLevel == nil then HardcoreStatTrackerAccountDB.highestLevel = 0 end
+    if HardcoreStatTrackerAccountDB.level60s    == nil then HardcoreStatTrackerAccountDB.level60s    = 0 end
     if HardcoreStatTrackerAccountDB.makgoraDebug == nil then HardcoreStatTrackerAccountDB.makgoraDebug = false end
     if HardcoreStatTrackerAccountDB.mobDamage == nil then HardcoreStatTrackerAccountDB.mobDamage = {} end
     HC.adb = HardcoreStatTrackerAccountDB

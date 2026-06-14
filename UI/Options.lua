@@ -317,7 +317,7 @@ function HC:BuildStatsOptions()
     local TABS = {
         { "Survival",        { "Survival" } },
         { "Combat & Healing", { "Combat", "Healing" } },
-        { "World & Wealth",  { "Pet", "Group", "Adventure", "Wealth", "Mak'gora", "Character" } },
+        { "World & Wealth",  { "Pet", "Group", "Adventure", "Wealth", "Account", "Mak'gora", "Character" } },
     }
     local containers, tabBtns = {}, {}
     local function ShowTab(active)

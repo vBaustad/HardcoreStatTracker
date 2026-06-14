@@ -117,6 +117,8 @@ function HC:StatData()
     d.bagsLooted  = { label = "Bags Looted", value = Comma(HC.db.bagsLooted) }
     d.makgoraWon  = { label = "Mak'gora Won", value = Comma(HC.adb and HC.adb.makgoraWon) }
     d.makgoraLost = { label = "Mak'gora Lost", value = Comma(HC.adb and HC.adb.makgoraLost) }
+    d.highestLevel = { label = "Highest Level", value = Comma(HC.adb and HC.adb.highestLevel) }
+    d.level60s    = { label = "Level 60s", value = Comma(HC.adb and HC.adb.level60s) }
     d.buffsGiven  = { label = "Buffs Given", value = Comma(HC.db.buffsGiven) }
     return d
 end
@@ -204,6 +206,9 @@ local FULL_LAYOUT = {
     { key = "goldSpent",    icon = ICON .. "INV_Misc_Coin_04" },
     { key = "goldLooted",   icon = ICON .. "INV_Misc_Coin_02" },
     { key = "bagsLooted",   icon = ICON .. "INV_Misc_Bag_10" },
+    { header = "Account (all characters)" },
+    { key = "highestLevel", icon = ICON .. "Spell_ChargePositive" },
+    { key = "level60s",     icon = ICON .. "INV_Crown_01" },
     { header = "Mak'gora (account-wide)" },
     { key = "makgoraWon",   icon = ICON .. "INV_Sword_27" },
     { key = "makgoraLost",  icon = ICON .. "Ability_Rogue_FeignDeath" },

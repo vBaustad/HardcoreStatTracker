@@ -156,6 +156,19 @@ if JumpOrAscendStart then
     end)
 end
 
+-- Account-wide level milestones: the highest level any character has reached,
+-- and how many characters have hit max level. Called on login and level-up.
+function HC.UpdateAccountLevel(lvl)
+    if not HC.adb or not HC.db then return end
+    lvl = lvl or UnitLevel("player") or 1
+    if lvl > (HC.adb.highestLevel or 0) then HC.adb.highestLevel = lvl end
+    local maxLvl = (GetMaxPlayerLevel and GetMaxPlayerLevel()) or 60
+    if lvl >= maxLvl and not HC.db.counted60 then
+        HC.db.counted60 = true
+        HC.adb.level60s = (HC.adb.level60s or 0) + 1
+    end
+end
+
 -- Count a zone the first time it's entered.
 function HC.VisitZone()
     if not HC.db then return end

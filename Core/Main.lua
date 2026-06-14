@@ -29,6 +29,7 @@ StaticPopupDialogs["HST_RESET"] = {
             -- faker's tracks. Bump the reset count here.
             resets = (HC.db.resets or 0) + 1,
             tamperCount = HC.db.tamperCount, tamperedEver = HC.db.tamperedEver,
+            died = HC.db.died, counted60 = HC.db.counted60,
         }
         wipe(HC.db)
         for k, v in pairs(keep) do HC.db[k] = v end
@@ -199,6 +200,7 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         if HC.ApplyMinimapButton then HC:ApplyMinimapButton() end
         if HC.BuildOptions then HC:BuildOptions() end
         HC.UpdatePet()
+        if HC.UpdateAccountLevel then HC.UpdateAccountLevel() end
         HC:UpdateDisplay()
         HC.RequestPlayed()
         print("|cffff4444Hardcore Stat Tracker|r loaded. /hst to toggle, config, or hover for details.")
@@ -225,6 +227,7 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC.OnCombatEnd()
     elseif event == "PLAYER_LEVEL_UP" then
         HC.RequestPlayed() -- refresh the per-level timer base
+        if HC.UpdateAccountLevel then HC.UpdateAccountLevel(arg1) end  -- arg1 = new level
         HC:UpdateDisplay()
     elseif event == "UNIT_PET" then
         if arg1 == "player" then HC.UpdatePet() end
