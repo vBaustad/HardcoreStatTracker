@@ -412,12 +412,12 @@ function HC:BuildSplashOptions()
         local f = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
         f:SetPoint("TOPLEFT", x, y); f:SetText("|cffffd100" .. text .. "|r")
     end
-    cap("Art",         52, -132)
-    cap("Triggers on", 196, -132)
-    cap("Sound",       380, -132)
+    cap("Art",         52, -148)
+    cap("Triggers on", 196, -148)
+    cap("Sound",       380, -148)
 
     for i = 1, HC.SPLASH_SLOTS do
-        local baseY = -150 - (i - 1) * 38
+        local baseY = -166 - (i - 1) * 38
         local function slot() return HC.db.comic[i] end
 
         local artDD = MakeDD("art_" .. i, 72, baseY, 64, ART_OPTS,
@@ -446,7 +446,7 @@ function HC:BuildSplashOptions()
 
     local posBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     posBtn:SetSize(150, 22)
-    posBtn:SetPoint("TOPLEFT", 16, -390)
+    posBtn:SetPoint("TOPLEFT", 16, -406)
     posBtn:SetText("Position splashes")
     posBtn:SetScript("OnClick", function() HC:SetSplashPlacement(true) end)
     AddTooltip(posBtn, "Position splashes",
@@ -460,7 +460,7 @@ function HC:BuildSplashOptions()
     AddTooltip(lockBtn, "Lock", "Stop positioning and save where the splashes are.")
 
     local posNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    posNote:SetPoint("TOPLEFT", 16, -420)
+    posNote:SetPoint("TOPLEFT", 16, -436)
     posNote:SetText("Position hides this window and shows a small drag-and-lock panel. (also /hst splashes)")
 
     local function Refresh()
