@@ -26,7 +26,8 @@
 - **`/hst share`** posts a one-line stat summary to chat.
 - Mini panel now **abbreviates big numbers** (1k / 1.5k / 1.2M), plus **Show all /
   Hide all** buttons on the Mini Panel settings.
-- Full window: **Time Alive moved to the header**, tighter rows to fit more stats.
+- Full window: **Time Alive moved to the header**, tighter rows, and sections
+  organized into **Combat / World / Account tabs** so it stays a sane height.
 
 ### Fixes
 - Biggest Melee / Ranged / Spell / Ability records track **non-crit** hits (crits

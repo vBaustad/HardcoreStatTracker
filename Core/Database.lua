@@ -56,6 +56,7 @@ local LAYOUT_DEFAULTS = {
     comicDuration = 2.0, -- seconds a splash stays on screen (incl. pop + fade)
     combatTimer = true,  -- live "In Combat" line on the mini panel
     miniHighlight = true,-- animated border on a mini row that just set a record
+    fullTab    = 1,      -- last-selected full-window tab
     fullAlpha  = 0.97,   -- full-window background opacity
     fullScale  = 1.0,    -- full-window scale (for high-res / readability)
     miniAlpha  = 0.8,    -- mini-panel background opacity

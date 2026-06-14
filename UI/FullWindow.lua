@@ -161,7 +161,7 @@ full:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then
 full:SetScript("OnMouseUp", function() StopFullDrag() end)
 
 -- Layout: ordered sections (header rows) and stat rows with an icon each.
-local FULL_W, PAD, HEADER_H, ROW_BASE = 540, 12, 62, 22
+local FULL_W, PAD, HEADER_H, ROW_BASE = 540, 12, 90, 22
 local ICON = "Interface\\Icons\\"
 local FULL_LAYOUT = {
     { header = "Survival" },
@@ -213,6 +213,14 @@ local FULL_LAYOUT = {
     { key = "makgoraWon",   icon = ICON .. "INV_Sword_27" },
     { key = "makgoraLost",  icon = ICON .. "Ability_Rogue_FeignDeath" },
 }
+
+-- Sections are grouped into tabs so the window stays a sane height.
+local FULL_TABS = {
+    { name = "Combat",  sections = { Survival = true, Combat = true, Healing = true } },
+    { name = "World",   sections = { Pet = true, Group = true, Adventure = true, Wealth = true } },
+    { name = "Account", sections = { ["Account (all characters)"] = true, ["Mak'gora (account-wide)"] = true } },
+}
+local tabButtons = {}
 
 full:SetWidth(FULL_W)
 
@@ -388,6 +396,24 @@ divider:SetPoint("TOPLEFT", PAD, -58)
 divider:SetPoint("TOPRIGHT", -PAD, -58)
 divider:SetHeight(1)
 
+-- Tab bar (Combat / World / Account) under the divider. RefreshFull only renders
+-- the active tab's sections, so the window stays short.
+do
+    local gap = 4
+    local tw = (FULL_W - PAD * 2 - gap * (#FULL_TABS - 1)) / #FULL_TABS
+    for i, t in ipairs(FULL_TABS) do
+        local b = CreateFrame("Button", nil, full, "UIPanelButtonTemplate")
+        b:SetSize(tw, 20)
+        b:SetPoint("TOPLEFT", PAD + (i - 1) * (tw + gap), -64)
+        b:SetText(t.name)
+        b:SetScript("OnClick", function()
+            if HC.db then HC.db.fullTab = i end
+            HC:RefreshFull()
+        end)
+        tabButtons[i] = b
+    end
+end
+
 -- Reusable row pool (icon + label + right-aligned value + optional sub-line + bar)
 local fullRows = {}
 local function CreateRow()
@@ -546,6 +572,14 @@ function HC:RefreshFull()
     local colX = { PAD, PAD + colW + colGap }
     local y, idx = -HEADER_H, 0
 
+    -- Active tab: only its sections render; the tab button is shown "pressed".
+    local tab = HC.db.fullTab or 1
+    if tab < 1 or tab > #FULL_TABS then tab = 1 end
+    for ti, b in ipairs(tabButtons) do
+        if ti == tab then b:Disable() else b:Enable() end
+    end
+    local activeSections = FULL_TABS[tab].sections
+
     -- Sections that are pure noise for this character get skipped entirely.
     local function SectionRelevant(name)
         if name == "Pet" then
@@ -586,7 +620,7 @@ function HC:RefreshFull()
                     if HC:Visible(it.key) then shown[#shown + 1] = it end
                 end
             end
-            if #shown > 0 then
+            if activeSections[header] and #shown > 0 then
                 if idx > 0 then y = y - 6 end  -- breathing room between sections
                 idx = idx + 1
                 StyleHeader(GetRow(idx), header, y, FULL_W - PAD * 2)
