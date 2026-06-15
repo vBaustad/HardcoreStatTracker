@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.6.0
+
+### Splashes
+- New art: **WHAM!** and **CRACK!**, plus a cleaner **WOW!** (replaced the old
+  watermarked one).
+- **Visual art picker** — click a slot's art thumbnail in settings to choose from
+  a gallery of every splash image, instead of reading a text dropdown.
+- Comic splashes are now **off by default** — turn them on with "Show comic
+  splashes" in the Splashes settings. The default slots are preset (POW! on crit,
+  BOOM! on melee, ZAP! on ranged), so it works the moment you enable it.
+
+### Fixes
+- `/hst reset` no longer resets your splash duration or the "random art on every
+  crit" toggle.
+
 ## 1.5.1
 
 ### New stats

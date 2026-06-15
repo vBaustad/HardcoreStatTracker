@@ -22,6 +22,7 @@ StaticPopupDialogs["HST_RESET"] = {
             fullPoint = HC.db.fullPoint, fontSize = HC.db.fontSize, scale = HC.db.scale,
             lastWords = HC.db.lastWords, showVersion = HC.db.showVersion, mobTooltip = HC.db.mobTooltip,
             announce = HC.db.announce, welcomed = HC.db.welcomed, comicPops = HC.db.comicPops,
+            comicRandom = HC.db.comicRandom, comicDuration = HC.db.comicDuration,
             comic = HC.db.comic, fullAlpha = HC.db.fullAlpha, miniAlpha = HC.db.miniAlpha,
             combatTimer = HC.db.combatTimer,
             playedTotal = HC.db.playedTotal, playedLevel = HC.db.playedLevel,

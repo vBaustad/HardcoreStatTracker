@@ -476,7 +476,7 @@ function HC.OnCombatLog()
         HC:ComicEvent("highestCrit")
     end
 
-    -- "Random art on crit" splash mode fires on EVERY (direct) crit, not records.
+    -- "Random art on crit" mode pops on EVERY (direct) crit, not just records.
     if srcGUID == HC.state.playerGUID and critical and directHit and HC.RandomCritSplash then
         HC:RandomCritSplash()
     end

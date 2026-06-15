@@ -2,60 +2,65 @@
 
 <img src="HardcoreStatTracker.png" alt="Hardcore Stat Tracker logo" width="160" align="right">
 
-**A trophy case for your hardcore character.** Hardcore Stat Tracker quietly records your closest calls, biggest hits, toughest kills, and the rest of your run's defining moments, and shows them in a compact on-screen panel and a detailed full window. Built for **WoW Classic Era / Hardcore (1.15.x)**.
+**A trophy case for your hardcore character.** Hardcore Stat Tracker keeps a running record of your closest calls, biggest hits, toughest kills, and the moments that defined your run — and shows them off in a tidy on-screen panel and a full stats window. Made for **WoW Classic Era / Hardcore (1.15.x)**.
 
-## Features
+It runs quietly in the background. You play; it remembers.
 
-- **Survival records** — Closest Call (lowest HP% + the raw number), Nearest Death (how many seconds from dying you were, based on incoming DPS), Biggest Hit Taken, Highest Fall (as a share of your max HP at impact — a number that actually means something across levels), Clutch Saves, Untouched Streak, Most Foes at Once, Panic Moments, Fights Survived, Total Damage Taken.
-- **Combat records** — Highest Crit, Biggest Melee / Ranged / Spell / Ability Hit (physical "yellow" abilities like Sinister Strike or Aimed Shot are tracked apart from real spells), Killing Blows, Total Damage Done, Longest Fight, Most Damage Taken in One Fight, Toughest Foe (highest level above you that you took on).
-- **Healing records** — Biggest Heal, Total Healing (effective, overheal excluded), and Players Saved (a direct heal that pulled a critically-low party member back from the brink).
-- **Pet & group** — current pet, pet deaths (with a log), Pet Killing Blows (tracked separately for pet-only challenges), party-member deaths you witnessed, and buffs you've put on other players.
-- **Wealth** — Gold Earned (lifetime income — loot, quests, vendoring), Gold Spent (lifetime outgo — vendor buys, repairs, training, postage), Gold Looted (coin straight off kills and loot), and Bags Looted (containers looted off corpses and chests — never the ones you buy).
-- **Adventure** — quests completed, zones explored, jumps made (for fun), and Time Alive (your `/played`, which for a hardcore character *is* your time alive).
-- **Account milestones (account-wide)** — Highest Level reached, Level 60s (how many of your characters have hit max level), and Characters Drowned (because it happens).
-- **Mak'gora (account-wide)** — duels won and lost, persisting across all your characters.
-- **Mob tooltips (account-wide)** — hover a mob and see "Has hit you for up to X (at lvl Y)" if it's hurt any of your characters before. Your new character inherits the warnings.
-- **Memorial roll** — an account-wide list of your fallen heroes. When a character dies, their card is saved (level, time survived, what felled them and where, headline records). Browse the whole roll, click any name to read their card, and Share it to chat. No deaths yet? The page cheers you on to keep it that way. Open with the skull on the full window or `/hst memorial`.
-- **Records integrity (anti-fake)** — the full window shows how many times this character's records have been reset, and runs an integrity check on the saved file. If the `SavedVariables` were hand-edited outside the game, the character is flagged. *(This catches casual file edits — it is a deterrent, not unbreakable tamper-proofing.)*
-- **Comic splashes** — optional fun: a comic-book **POW! / BOOM! / ZAP!** pops on screen when you set a new record (crit / melee / ranged by default). Each of the six slots can be turned off, dragged anywhere, linked to any record stat, and given its own sound.
-- **Famous Last Words** — optional: when you drop low, broadcast a cocky/ironic line to chat (built-in surprise pool + your own messages) and/or fire an attention alert (screen flash + sound). Independent thresholds for the chat line and the alert.
-- **Record announcements** — optional, two separate streams: new personal bests go to **party / say** a few seconds after a fight you survive (never raid, with a per-fight cap so it stays rare); and an opt-in **guild** line only for genuine clutch survivals (dropping to ≤5% HP and living), rate-limited and never fired from the grave.
-- **Two views** — a customizable mini panel (pick exactly which stats show; pets default to pet classes only) and a designed full window, organized into **Combat / World / Account** tabs, with icons, a color-coded danger bar, per-stat explanation tooltips, "new!" highlights on fresh records, and Escape-to-close. Anything you enable on the mini panel also shows in the full window — even in sections it would otherwise hide for your class.
-- **Quick Settings** — the full window's **Display** button opens a popup with live scale and background-opacity sliders for both the mini panel and the full window.
-- **Adjustable** — text size, panel scale, background opacity, draggable frames, full per-stat visibility control.
+## What it tracks
+
+- **Survival** — your closest call, how close you came to dying, the biggest hit you ate, your nastiest fall, clutch saves, how many enemies you've faced at once, your longest streak without a scratch, and more.
+- **Combat** — your highest crit, biggest melee, ranged, spell and ability hits, killing blows, total damage done, longest fight, and the toughest foe you've taken on.
+- **Healing** — your biggest heal, total healing done, and the times you pulled a teammate back from the brink.
+- **Pet & group** — your pet, its kills and deaths, the party members you've seen fall, and the buffs you've handed out.
+- **Wealth** — gold earned, gold spent, coin looted off kills, and bags cracked open.
+- **Adventure** — quests completed, zones explored, jumps made (just for fun), and your total time alive.
+- **Account milestones** — your highest level ever, how many characters have hit 60, and — let's be honest — how many have drowned.
+- **Mak'gora** — duels won and lost, kept across all your characters.
+- **Mob warnings** — hover any mob and see how hard it's hit you before. Roll a new character and the warnings carry over.
+
+## The fun stuff
+
+- **Memorial roll** — an account-wide hall of your fallen heroes. When a character dies, their card is saved: their level, how long they lasted, what got them, and their best records. Browse the roll, open any name to read their story, and share it to chat.
+- **Comic splashes** — optional **POW! / BOOM! / ZAP!** comic-book pops on screen when you set a new record. Set up to six: pick each one's picture from a visual gallery, choose which record triggers it and an optional sound, and drag each wherever you want. Or flip on "random art on every crit" for nonstop comic-book chaos.
+- **Famous Last Words** — optional: when your health drops dangerously low, fire off a cocky one-liner to chat and/or a screen flash to get your attention.
+- **Record announcements** — optional: quietly let your party know when you set a new personal best, and (if you choose) post to guild chat when you survive a genuine brush with death.
+
+## Two ways to see your stats
+
+- **Mini panel** — a small on-screen panel showing exactly the stats you care about. Drag it wherever you like.
+- **Full window** — the complete picture, organized into Combat, World, and Account tabs, with icons, a danger meter, plain-language explanations for every stat, and highlights when you beat a record.
+
+You decide which stats show, how big everything is, and how see-through the panels are.
 
 ## Installation
 
 1. Download and unzip into `World of Warcraft/_classic_era_/Interface/AddOns/`.
-2. Make sure the folder is named `HardcoreStatTracker` and contains the `.toc`.
+2. Make sure the folder is named `HardcoreStatTracker`.
 3. `/reload` or restart the game.
 
-## Usage
+## How to use it
 
-- The mini panel appears on screen — drag it anywhere.
-- Click the `[+]` button (or `/hst full`) for the full window with every stat and its context.
-- `/hst` opens settings; `/hst config` jumps straight there.
+- The mini panel shows up on screen — drag it where you want it.
+- Click the **[+]** button (or type `/hst full`) to open the full window.
+- Type `/hst config` to choose which stats appear and tweak the look.
+
+That's it. Play your character; the rest happens on its own.
 
 ## Slash commands
 
-- `/hst` — toggle the mini panel
-- `/hst full` — open the full window
+- `/hst` — show or hide the mini panel
+- `/hst full` — open the full stats window
 - `/hst config` — open settings
-- `/hst splashes` — enter placement mode to drag the comic splashes
-- `/hst welcome` — show the welcome window again
-- `/hst memorial` — show this character's death memorial
-- `/hst share [say|party|guild|raid|yell]` — post a one-line stat summary to chat
-- `/hst reset` — clear this character's records (account-wide Mak'gora is kept)
-- `/hst makgora won|lost` — manually record a Mak'gora result
-- `/hst makgora debug` — print the raw Mak'gora system message (to refine auto-detection)
+- `/hst memorial` — open this character's memorial
+- `/hst share` — post a quick stat summary to chat
+- `/hst reset` — clear this character's records
 
-`/hcstats` and `/hc` still work as aliases for `/hst`.
+`/hcstats` and `/hc` also work.
 
-## Notes
+## Good to know
 
-- Stats are **per-character** (each new hardcore character starts fresh) except **Mak'gora**, which is account-wide.
-- Text matching for Famous Last Words and a few records is tuned for an **English (enUS)** client.
-- Auto chat to `/say` uses the next keypress (a hardware-event requirement), so it fires the moment you press anything after dropping low.
+- Stats are **per-character** — every new hardcore character starts fresh. The one exception is **Mak'gora**, which is shared across your whole account.
+- Built and tested for the **English** game client.
 
 ## License
 

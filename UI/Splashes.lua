@@ -35,6 +35,8 @@ HC.SPLASH_ART = {
     { "ouch", "OUCH!" },
     { "bang", "BANG!" },
     { "wow",  "WOW!" },
+    { "wham", "WHAM!" },
+    { "crack","CRACK!" },
 }
 
 -- Sound a splash can play on pop (file key in Sounds\ -> dropdown label).
@@ -80,8 +82,9 @@ end
 local function SaveSlotPos(f)
     local cx, cy = f:GetCenter()
     local ux, uy = UIParent:GetCenter()
+    if not (cx and ux) then return end
     local conf = HC.db and HC.db.comic and HC.db.comic[f.slot]
-    if cx and ux and conf then
+    if conf then
         conf.x = math.floor(cx - ux + 0.5)
         conf.y = math.floor(cy - uy + 0.5)
     end
@@ -208,15 +211,16 @@ end
 -- mode, which replaces the specific slots entirely.
 function HC:ComicPop(slot)
     if not HC.db or HC.db.comicPops == false or splashPlacement then return end
-    if HC.db.comicRandom then return end
+    if HC.db.comicRandom then return end   -- random-on-crit mode replaces per-slot record pops
     local conf = HC.db.comic and HC.db.comic[slot]
     if not conf or conf.art == "none" then return end
     PopFrame(GetComicFrame(slot), conf.art,
         conf.x + math.random(-30, 30), conf.y + math.random(-25, 25), conf.sound, 8)
 end
 
--- "Random art on crit" mode: a random comic art pops on every crit (~2s
--- cooldown), at a random spot, with a random sound. Driven from the combat log.
+-- "Random art on crit" mode: a random art pops on every (direct) crit (~2s
+-- cooldown) at a random one of the six slot spots, with a random sound. Driven
+-- from the combat log; replaces the per-slot record triggers while it's on.
 local RANDOM_CD = 2
 function HC:RandomCritSplash()
     if not HC.db or HC.db.comicPops == false or not HC.db.comicRandom or splashPlacement then return end
@@ -226,8 +230,7 @@ function HC:RandomCritSplash()
     local pool = {}
     for _, s in ipairs(HC.SPLASH_SOUNDS) do if s[1] ~= "none" then pool[#pool + 1] = s[1] end end
     if #pool > 0 then sound = pool[math.random(#pool)] end
-    -- Land at a random one of the 6 positioned spots (jittered), so the player
-    -- controls where random splashes can appear via Position splashes.
+    -- Land at a random one of the six positioned spots (jittered).
     local spot = HC.db.comic[math.random(HC.SPLASH_SLOTS)]
     local x = (spot and spot.x or 0) + math.random(-25, 25)
     local y = (spot and spot.y or 0) + math.random(-25, 25)
@@ -246,7 +249,8 @@ end
 -- Called wherever a record stat improves; stamps it and pops every slot wired to it.
 function HC:ComicEvent(statKey)
     if not HC.db then return end
-    HC:StampRecord(statKey)
+    HC:StampRecord(statKey)            -- always stamp so the full window flags "new!"
+    if HC.db.comicPops == false then return end
     if not HC.db.comic then return end
     for slot = 1, HC.SPLASH_SLOTS do
         local conf = HC.db.comic[slot]
@@ -311,6 +315,7 @@ local function EnsurePlacementControls()
     note:SetPoint("TOP", 0, -30)
     note:SetWidth(204); note:SetJustifyH("CENTER")
     note:SetText("Drag each splash where you want it.")
+    f.note = note   -- text is set per-mode when placement opens
 
     local lock = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     lock:SetSize(204, 24)
@@ -341,46 +346,58 @@ local function HideSettingsWindow()
     end
 end
 
--- Enter/leave placement mode. Active slots (art ~= "none") show their art over a
--- green overlay with a marching border, and become draggable; positions save on drop.
+-- Show one placement frame: its art over a green overlay with a marching border,
+-- draggable, positions save on drop. Hide tears it back down.
+local function ShowPlaceFrame(f, art, x, y)
+    f.ag:Stop()
+    f.float:Stop()
+    f:EnableMouse(true)
+    f:SetAlpha(1)
+    f.tex:SetTexture(MEDIA .. art)
+    f.tex:SetRotation(0)
+    f:ClearAllPoints()
+    f:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    ShowDecor(f, true)
+    f:Show()
+end
+local function HidePlaceFrame(f)
+    if not f then return end
+    StopSplashDrag(f)
+    f.float:Stop()
+    f:EnableMouse(false)
+    ShowDecor(f, false)
+    f:Hide()
+end
+
+-- Enter/leave placement mode. Each enabled slot (art ~= "none") shows its art and
+-- becomes draggable; positions save on drop.
 function HC:SetSplashPlacement(on)
     if not HC.db or not HC.db.comic then return end
     on = on and true or false
     if on == splashPlacement then return end   -- no-op if unchanged (safe to call on combat start)
     splashPlacement = on
+
     for slot = 1, HC.SPLASH_SLOTS do
         local conf = HC.db.comic[slot]
-        -- Specific mode positions the enabled slots; random mode positions ALL 6
-        -- (they are the spots a random crit splash can land on).
-        local active = conf and (HC.db.comicRandom or conf.art ~= "none")
         local f = comicFrames[slot]
+        -- Normal mode positions enabled slots; random-on-crit mode positions ALL
+        -- six (they're the spots a random crit splash can land on).
+        local active = conf and (HC.db.comicRandom or conf.art ~= "none")
         if splashPlacement and active then
-            f = GetComicFrame(slot)
-            f.ag:Stop()
-            f.float:Stop()
-            f:EnableMouse(true)
-            f:SetAlpha(1)
-            -- Show the slot's art, or a sample (random-mode slots may be "none").
-            local showArt = (conf.art and conf.art ~= "none") and conf.art
+            -- Show the slot's art, or a sample for "none" slots in random mode.
+            local showArt = (conf.art ~= "none") and conf.art
                 or HC.SPLASH_ART[((slot - 1) % #HC.SPLASH_ART) + 1][1]
-            f.tex:SetTexture(MEDIA .. showArt)
-            f.tex:SetRotation(0)
-            f:ClearAllPoints()
-            f:SetPoint("CENTER", UIParent, "CENTER", conf.x, conf.y)
-            ShowDecor(f, true)
-            f:Show()
-        elseif f then
-            StopSplashDrag(f)
-            f.float:Stop()
-            f:EnableMouse(false)
-            ShowDecor(f, false)
-            f:Hide()
+            ShowPlaceFrame(GetComicFrame(slot), showArt, conf.x, conf.y)
+        else
+            HidePlaceFrame(f)
         end
     end
+
     if splashPlacement then
         placeAnimator:Show()
         HideSettingsWindow()
         local f = EnsurePlacementControls()
+        if f.note then f.note:SetText("Drag each splash where you want it.") end
         f:ClearAllPoints()
         local p = HC.db.splashCtrlPoint
         if p then f:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else f:SetPoint("TOP", 0, -140) end

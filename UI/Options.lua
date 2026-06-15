@@ -371,34 +371,31 @@ function HC:BuildSplashOptions()
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
-    sub:SetText("Up to six splashes can pop on screen when you set a record. For each slot pick its "
-        .. "art (or Off to disable it), the record that triggers it, and an optional sound - then use "
-        .. "Position to drag them where you want.")
+    sub:SetText("A comic-book POW! pops on screen when you set a record. Set up to six: click a "
+        .. "slot's art to pick the picture, choose which record triggers it and an optional sound, "
+        .. "then use Position to drag each one where you want it.")
 
-    local masters = {}
-    local ddList = {}        -- { dd, options, get } for refresh
-    local rows = {}          -- [i] = { preview } for refresh
+    local masters = {}   -- checkboxes / sliders refreshed from getters
+    local ddList  = {}   -- { dd, options, get } dropdowns to refresh
+    local rows    = {}   -- [i] = { art = <thumbnail texture> } for refresh
 
     masters[#masters + 1] = MakeCheck(panel, "comicpops", "Show comic splashes (master)", 16, -74,
         function() return HC.db and HC.db.comicPops end,
         function(v) HC.db.comicPops = v end,
         "Master switch for the whole feature. Off = nothing pops, whatever the slots below say.")
-    local soundHint = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    soundHint:SetPoint("TOPLEFT", 16, -120)
-    soundHint:SetText("Sound plays per slot below (None = silent), on the Sound Effects channel - set its volume in the game's Sound options.")
     masters[#masters + 1] = MakeSlider(panel, "comicdur", 330, -84, 1, 6, 0.5,
         function(v) return ("Show for: %.1fs"):format(v) end,
         function() return HC.db and HC.db.comicDuration or 2 end,
         function(v) HC.db.comicDuration = v end,
         "How long each splash stays on screen, start to finish (pop-in + hold + fade-out).")
-    masters[#masters + 1] = MakeCheck(panel, "comicrandom", "Random art on every crit", 16, -98,
+    masters[#masters + 1] = MakeCheck(panel, "comicrandom", "Random art on every crit (instead of specific records)", 16, -98,
         function() return HC.db and HC.db.comicRandom end,
         function(v) HC.db.comicRandom = v; if panel._splashRefresh then panel._splashRefresh() end end,
-        "Pop a RANDOM comic art on every crit (about every 2s), cycling through all arts and sounds, at a random one of your 6 spots. The slots' art/trigger/sound are ignored, but Position splashes still sets where they can appear.")
+        "On: a random art pops on EVERY crit (about every 2s) at a random one of your six spots, with a random sound - the per-slot art/trigger/sound below are ignored. Position still sets where they can land.")
 
-    -- Art options = "Off" plus every art texture.
-    local ART_OPTS = { { "none", "Off" } }
-    for _, o in ipairs(HC.SPLASH_ART) do ART_OPTS[#ART_OPTS + 1] = o end
+    local soundHint = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    soundHint:SetPoint("TOPLEFT", 16, -122)
+    soundHint:SetText("Splash sounds use the Sound Effects channel - set its volume in the game's Sound options.")
 
     local function labelOf(options, value)
         for _, opt in ipairs(options) do if opt[1] == value then return opt[2] end end
@@ -427,12 +424,100 @@ function HC:BuildSplashOptions()
         return dd
     end
 
-    -- Column captions.
-    local function cap(text, x, y)
-        local f = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        f:SetPoint("TOPLEFT", x, y); f:SetText("|cffffd100" .. text .. "|r")
+    -- ---- Visual art picker: a shared popup grid showing every art image ----
+    local MEDIA = "Interface\\AddOns\\HardcoreStatTracker\\Media\\"
+    local ART_OPTS = { { "none", "Off" } }
+    for _, o in ipairs(HC.SPLASH_ART) do ART_OPTS[#ART_OPTS + 1] = o end
+
+    local artPicker
+    local function GetArtPicker()
+        if artPicker then return artPicker end
+        local f = CreateFrame("Frame", "HardcoreStatTrackerArtPicker", UIParent, "BackdropTemplate")
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:SetToplevel(true)
+        f:SetClampedToScreen(true)
+        f:EnableMouse(true)
+        f:SetBackdrop({
+            bgFile   = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 16, edgeSize = 16,
+            insets = { left = 4, right = 4, top = 4, bottom = 4 },
+        })
+        f:SetBackdropColor(0.05, 0.04, 0.04, 0.97)
+        f:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
+        tinsert(UISpecialFrames, "HardcoreStatTrackerArtPicker")   -- Escape closes it
+
+        local heading = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        heading:SetPoint("TOP", 0, -10)
+        heading:SetText("|cffff4444Choose art|r")
+
+        local COLS, CELL, GAP, TOP = 5, 52, 8, -30
+        f.cells = {}
+        for idx, opt in ipairs(ART_OPTS) do
+            local col, r = (idx - 1) % COLS, math.floor((idx - 1) / COLS)
+            local cell = CreateFrame("Button", nil, f)
+            cell:SetSize(CELL, CELL + 12)
+            cell:SetPoint("TOPLEFT", 12 + col * (CELL + GAP), TOP - r * (CELL + 12 + GAP))
+
+            local bg = cell:CreateTexture(nil, "BACKGROUND")
+            bg:SetPoint("TOPLEFT", 0, 0); bg:SetPoint("BOTTOMRIGHT", 0, 12)
+            bg:SetColorTexture(0, 0, 0, 0.4)
+
+            local tex = cell:CreateTexture(nil, "ARTWORK")
+            tex:SetPoint("TOPLEFT", 3, -3); tex:SetPoint("BOTTOMRIGHT", -3, 15)
+            if opt[1] == "none" then
+                tex:Hide()
+                local off = cell:CreateFontString(nil, "ARTWORK", "GameFontDisableLarge")
+                off:SetPoint("CENTER", 0, 6); off:SetText("Off")
+            else
+                tex:SetTexture(MEDIA .. opt[1])
+            end
+
+            local lbl = cell:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            lbl:SetPoint("BOTTOM", 0, 0); lbl:SetText(opt[2])
+
+            local hover = cell:CreateTexture(nil, "HIGHLIGHT")
+            hover:SetPoint("TOPLEFT", 0, 0); hover:SetPoint("BOTTOMRIGHT", 0, 12)
+            hover:SetColorTexture(1, 0.82, 0, 0.25)
+
+            local check = cell:CreateTexture(nil, "OVERLAY")
+            check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+            check:SetSize(22, 22); check:SetPoint("TOPRIGHT", 2, 14); check:Hide()
+            cell.check, cell.art = check, opt[1]
+
+            cell:SetScript("OnClick", function(self)
+                if f.targetSlot then
+                    HC.db.comic[f.targetSlot].art = self.art
+                    if f.onPick then f.onPick(self.art) end
+                end
+                f:Hide()
+            end)
+            f.cells[idx] = cell
+        end
+
+        local rowsN = math.ceil(#ART_OPTS / COLS)
+        f:SetSize(24 + COLS * CELL + (COLS - 1) * GAP, 40 + rowsN * (CELL + 12 + GAP))
+        f:Hide()
+        artPicker = f
+        return f
     end
-    cap("Art",         52, -148)
+
+    local function OpenArtPicker(slotIndex, anchorBtn, onPick)
+        local f = GetArtPicker()
+        f.targetSlot, f.onPick = slotIndex, onPick
+        local cur = HC.db.comic[slotIndex].art
+        for _, cell in ipairs(f.cells) do cell.check:SetShown(cell.art == cur) end
+        f:ClearAllPoints()
+        f:SetPoint("TOPLEFT", anchorBtn, "BOTTOMLEFT", 0, -4)
+        f:Show(); f:Raise()
+    end
+
+    -- ---- Per-slot rows: art thumbnail (opens picker) + trigger + sound ----
+    local function cap(text, x, y)
+        local fs = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        fs:SetPoint("TOPLEFT", x, y); fs:SetText("|cffffd100" .. text .. "|r")
+    end
+    cap("Art",         48, -148)
     cap("Triggers on", 196, -148)
     cap("Sound",       380, -148)
 
@@ -440,19 +525,28 @@ function HC:BuildSplashOptions()
         local baseY = -166 - (i - 1) * 38
         local function slot() return HC.db.comic[i] end
 
-        local artDD = MakeDD("art_" .. i, 72, baseY, 64, ART_OPTS,
-            function() return slot().art end,
-            function(v) slot().art = v end,
-            function(v) HC.SplashArtTexture(rows[i].preview, v) end)
-
-        -- Slot number + live art thumbnail, anchored to the art dropdown.
-        local preview = panel:CreateTexture(nil, "ARTWORK")
-        preview:SetSize(26, 26)
-        preview:SetPoint("RIGHT", artDD, "LEFT", 4, 2)
         local num = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-        num:SetPoint("RIGHT", preview, "LEFT", -2, 0)
+        num:SetPoint("TOPLEFT", 22, baseY - 10)
         num:SetText(i .. ".")
-        rows[i] = { preview = preview }
+
+        -- Clickable art thumbnail: shows the chosen art, opens the visual picker.
+        local artBtn = CreateFrame("Button", nil, panel, "BackdropTemplate")
+        artBtn:SetSize(34, 34)
+        artBtn:SetPoint("TOPLEFT", 44, baseY)
+        artBtn:SetBackdrop({
+            bgFile   = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            edgeSize = 12, insets = { left = 2, right = 2, top = 2, bottom = 2 },
+        })
+        artBtn:SetBackdropColor(0, 0, 0, 0.4)
+        artBtn:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8)
+        local thumb = artBtn:CreateTexture(nil, "ARTWORK")
+        thumb:SetPoint("TOPLEFT", 3, -3); thumb:SetPoint("BOTTOMRIGHT", -3, 3)
+        rows[i] = { art = thumb, btn = artBtn }
+        AddTooltip(artBtn, "Splash art", "Click to choose the picture for this splash (or Off to disable the slot).")
+        artBtn:SetScript("OnClick", function()
+            OpenArtPicker(i, artBtn, function(art) HC.SplashArtTexture(thumb, art) end)
+        end)
 
         MakeDD("trigger_" .. i, 185, baseY, 145, HC.SPLASH_TRIGGERS,
             function() return slot().stat end,
@@ -491,16 +585,24 @@ function HC:BuildSplashOptions()
             local v = e.get()
             UIDropDownMenu_SetSelectedValue(e.dd, v)
             UIDropDownMenu_SetText(e.dd, labelOf(e.options, v))
-            -- Random mode replaces the slots, so grey them out.
-            if randomOn then UIDropDownMenu_DisableDropDown(e.dd)
-            else UIDropDownMenu_EnableDropDown(e.dd) end
+            -- Random-on-crit mode ignores the per-slot dropdowns, so grey them out.
+            if randomOn then UIDropDownMenu_DisableDropDown(e.dd) else UIDropDownMenu_EnableDropDown(e.dd) end
         end
         for i = 1, HC.SPLASH_SLOTS do
-            HC.SplashArtTexture(rows[i].preview, HC.db.comic[i].art)
+            HC.SplashArtTexture(rows[i].art, HC.db.comic[i].art)
+            local btn = rows[i].btn
+            if btn then
+                if randomOn then
+                    btn:Disable(); rows[i].art:SetDesaturated(true); rows[i].art:SetAlpha(0.4)
+                else
+                    btn:Enable(); rows[i].art:SetDesaturated(false); rows[i].art:SetAlpha(1)
+                end
+            end
         end
     end
     panel._splashRefresh = Refresh
     panel:SetScript("OnShow", Refresh)
+    panel:SetScript("OnHide", function() if artPicker then artPicker:Hide() end end)
     Refresh()
 
     RegisterPage(panel, "Splashes", "Hardcore Stat Tracker")
