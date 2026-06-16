@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.7.0
+
+### Fixes
+- **Fixed an addon conflict that could block the Looking For Group listings.** The
+  settings dropdowns no longer use Blizzard's shared dropdown system, which was
+  tainting the Group Finder's search.
+- `/hst reset` no longer resets the minimap button (on/off + position).
+
+### Mini panel
+- New **full-width bar mode** - a Titan-style bar across the top of the screen
+  instead of the stacked panel (Mini Panel -> Display -> Full-width bar). It
+  auto-fits as many stats as will show, stacks neatly below TitanPanel, and has an
+  optional **Adjust screen** toggle that pushes the minimap down so the bar doesn't
+  cover it.
+- The Mini Panel settings page is reorganized: an always-visible **Display** section
+  (mode, size, opacity, in-combat timer, highlight) above compact, themed tabs for
+  the stat categories.
+
+### Onboarding
+- The welcome window is now an **interactive carousel** - preview a comic splash and
+  turn it on right there, with stat-icon and splash-art visuals.
+- New **What's New** panel that pops once after an update, re-openable via `/hst news`
+  or the full window's button.
+
+### Chat
+- Auto **record announcements are tagged `[HST]`** and reworded to read as plain
+  addon reports; the guild clutch line reads as a broadcast ("...just survived a
+  battle with only 4% HP left").
+- The `/hst share` summary reads better (no tag - you send it yourself).
+
+### Full window
+- **Mak'gora now always shows on the Account tab** (it's account-wide), even at 0/0.
+
 ## 1.6.0
 
 ### Splashes

@@ -9,62 +9,64 @@ HC.ANNOUNCE = {
     closestCall  = { field = "lowestPct", lower = true, label = "Closest Call (new low %)",
         msg = function()
             local p = math.floor(HC.db.lowestPct)
-            if HC.db.lowestSource then return ("survived at %d%% HP vs %s - my closest call yet"):format(p, HC.db.lowestSource) end
-            return ("survived at %d%% HP - my closest call yet"):format(p)
+            if HC.db.lowestSource then return ("new closest call: %d%% HP (vs %s)"):format(p, HC.db.lowestSource) end
+            return ("new closest call: %d%% HP"):format(p)
         end },
     nearestDeath = { field = "closestSeconds", lower = true, label = "Nearest Death (seconds)",
-        msg = function() return ("came within %s of dying"):format(FmtSec(HC.db.closestSeconds)) end },
+        msg = function() return ("new nearest death: %s from dying"):format(FmtSec(HC.db.closestSeconds)) end },
     biggestHit   = { field = "biggestHit", label = "Biggest Hit Taken",
         msg = function()
             local n = Comma(HC.db.biggestHit)
-            if HC.db.biggestHitSource then return ("survived a %s hit from %s"):format(n, HC.db.biggestHitSource) end
-            return ("survived a record %s hit"):format(n)
+            if HC.db.biggestHitSource then return ("new biggest hit taken: %s (from %s)"):format(n, HC.db.biggestHitSource) end
+            return ("new biggest hit taken: %s"):format(n)
         end },
     highestCrit  = { field = "highestCrit", label = "Highest Crit",
         msg = function()
             local n = Comma(HC.db.highestCrit)
-            if HC.db.highestCritSpell then return ("biggest crit yet: %s (%s)"):format(n, HC.db.highestCritSpell) end
-            return ("biggest crit yet: %s"):format(n)
+            if HC.db.highestCritSpell then return ("new biggest crit: %s (%s)"):format(n, HC.db.highestCritSpell) end
+            return ("new biggest crit: %s"):format(n)
         end },
     biggestMelee = { field = "biggestMelee", label = "Biggest Melee Hit",
-        msg = function() return ("biggest melee hit yet: %s"):format(Comma(HC.db.biggestMelee)) end },
+        msg = function() return ("new biggest melee hit: %s"):format(Comma(HC.db.biggestMelee)) end },
     biggestRanged = { field = "biggestRanged", label = "Biggest Ranged Hit",
-        msg = function() return ("biggest ranged hit yet: %s"):format(Comma(HC.db.biggestRanged)) end },
+        msg = function() return ("new biggest ranged hit: %s"):format(Comma(HC.db.biggestRanged)) end },
     biggestSpell = { field = "biggestSpell", label = "Biggest Spell Hit",
-        msg = function() return ("biggest spell hit yet: %s"):format(Comma(HC.db.biggestSpell)) end },
+        msg = function() return ("new biggest spell hit: %s"):format(Comma(HC.db.biggestSpell)) end },
     biggestAbility = { field = "biggestAbility", label = "Biggest Ability Hit",
-        msg = function() return ("biggest ability hit yet: %s"):format(Comma(HC.db.biggestAbility)) end },
+        msg = function() return ("new biggest ability hit: %s"):format(Comma(HC.db.biggestAbility)) end },
     biggestHeal  = { field = "biggestHeal", label = "Biggest Heal",
-        msg = function() return ("biggest heal yet: %s"):format(Comma(HC.db.biggestHeal)) end },
+        msg = function() return ("new biggest heal: %s"):format(Comma(HC.db.biggestHeal)) end },
     playersSaved = { field = "playersSaved", label = "Player Saved",
-        msg = function() return "saved a teammate from near-certain death" end },
+        msg = function() return "saved a teammate at critically low HP" end },
     toughestFoe  = { field = "biggestLevelDiff", label = "Toughest Foe",
         msg = function()
             local d = HC.db.biggestLevelDiff
-            if HC.db.biggestLevelDiffMob then return ("beat %s, %d levels above me"):format(HC.db.biggestLevelDiffMob, d) end
-            return ("beat a foe %d levels above me"):format(d)
+            if HC.db.biggestLevelDiffMob then return ("new toughest foe: %s (+%d levels)"):format(HC.db.biggestLevelDiffMob, d) end
+            return ("new toughest foe: +%d levels"):format(d)
         end },
     highestFall  = { field = "highestFallPct", label = "Highest Fall",
         msg = function()
-            if HC.db.highestFallPct then return ("survived a fall that took %d%% of my HP"):format(math.floor(HC.db.highestFallPct)) end
-            return ("survived a %s-damage fall"):format(Comma(HC.db.highestFall))
+            if HC.db.highestFallPct then return ("new highest fall survived: %d%% of max HP"):format(math.floor(HC.db.highestFallPct)) end
+            return ("new highest fall survived: %s damage"):format(Comma(HC.db.highestFall))
         end },
 
     longestFight = { field = "longestFight", label = "Longest Fight",
-        msg = function() return ("longest fight yet: %s"):format(FmtTime(HC.db.longestFight)) end },
+        msg = function() return ("new longest fight: %s"):format(FmtTime(HC.db.longestFight)) end },
     mostDmgFight = { field = "mostDmgFight", label = "Most Dmg in One Fight",
-        msg = function() return ("took a record %s in a single fight"):format(Comma(HC.db.mostDmgFight)) end },
+        msg = function() return ("new most damage in one fight: %s"):format(Comma(HC.db.mostDmgFight)) end },
     untouched    = { field = "untouched", label = "Untouched Streak",
-        msg = function() return ("%s in combat without taking damage"):format(FmtTime(HC.db.untouched)) end },
+        msg = function() return ("new untouched streak: %s in combat"):format(FmtTime(HC.db.untouched)) end },
     mostFoes     = { field = "mostFoes", label = "Most Foes at Once",
-        msg = function() return ("survived %d enemies at once"):format(HC.db.mostFoes) end },
+        msg = function() return ("new most enemies at once: %d"):format(HC.db.mostFoes) end },
 }
 
 -- Guild clutch-survival lines, picked at random so it never repeats word-for-word. %d = HP%.
+-- Phrased as verb-phrases so the character name the game prepends becomes the
+-- subject: "Charname: [HST] just survived a battle with only 4% HP left".
 local CLUTCH_LINES = {
-    "survived a fight at %d%% HP",
-    "made it out of a fight at %d%% HP",
-    "down to %d%% HP, but survived the fight",
+    "just survived a battle with only %d%% HP left",
+    "just pulled through a fight with %d%% HP left",
+    "just made it out of a fight with %d%% HP left",
 }
 -- Guild clutch hype is intentionally rare and not user-tunable.
 local CLUTCH_PCT      = 5    -- only survivals at/under this HP% reach guild
@@ -85,6 +87,11 @@ local ANNOUNCE_DELAY = 4
 local pendingAnnounce = {}
 local lastGuildBrag   = 0   -- time() of the last guild line, for the cooldown
 
+-- Tag on the auto-announcements so people can tell it's an addon - NOT on Famous
+-- Last Words (those are meant to read in-character). Plain text: the server strips
+-- colour codes from say/party/guild chat anyway.
+local ANNOUNCE_PREFIX = "[HST] "
+
 -- Wipe anything pending (called on death so a "I survived!" line never posts).
 function HC:ClearAnnounce()
     wipe(pendingAnnounce)
@@ -99,13 +106,14 @@ function HC:FlushAnnounce()
     end
     local an = HC.db.announce
     for _, e in ipairs(pendingAnnounce) do
+        local msg = ANNOUNCE_PREFIX .. e.msg
         if e.chan == "GUILD" then
             if IsInGuild() and (time() - lastGuildBrag) >= CLUTCH_COOLDOWN then
-                HC.SayMessage(e.msg, "GUILD", false)
+                HC.SayMessage(msg, "GUILD", false)
                 lastGuildBrag = time()
             end
         else
-            HC.SayMessage(e.msg, e.chan, false)
+            HC.SayMessage(msg, e.chan, false)
         end
     end
     wipe(pendingAnnounce)

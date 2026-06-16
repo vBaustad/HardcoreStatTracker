@@ -62,6 +62,10 @@ local LAYOUT_DEFAULTS = {
     miniAlpha  = 0.8,    -- mini-panel background opacity
     minimapButton = true,-- show a minimap button
     minimapAngle  = 200, -- minimap button position around the ring (degrees)
+    miniMode    = "panel", -- "panel" (stacked box) or "bar" (full-width, Titan-style)
+    barOffset   = 0,       -- bar mode: vertical nudge (px) to stack below other bars
+    barScreenAdjust = false,-- bar mode (top): push the minimap cluster down so the bar doesn't cover it (opt-in; fragile alongside other minimap addons)
+    barDensity  = "auto",  -- bar mode: "auto" | "a" (label+value) | "b" (icon+value) | "c" (value)
     point      = { "CENTER", "CENTER", 250, 0 },
 }
 

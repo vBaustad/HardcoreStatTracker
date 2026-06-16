@@ -278,6 +278,10 @@ local memBtn = HC.MakeButton(full, "Memorial", 84, 20)
 memBtn:SetPoint("TOPLEFT", 8, -8)
 memBtn:SetScript("OnClick", function() if HC.ShowMemorial then HC:ShowMemorial() end end)
 
+local newsBtn = HC.MakeButton(full, "What's New", 90, 20)
+newsBtn:SetPoint("LEFT", memBtn, "RIGHT", 6, 0)
+newsBtn:SetScript("OnClick", function() if HC.ShowNews then HC:ShowNews() end end)
+
 local cfgBtn = HC.MakeButton(full, "Settings", 100, 22)
 cfgBtn:SetScript("OnClick", function()
     full:Hide()                       -- get out of the way of the settings window
@@ -576,10 +580,8 @@ function HC:RefreshFull()
             return class == "HUNTER" or class == "WARLOCK"
                 or (HC.db.petDeaths or 0) > 0 or (HC.db.petKillingBlows or 0) > 0 or UnitExists("pet")
         end
-        if name == "Mak'gora (account-wide)" then
-            return HC.adb ~= nil
-                and ((HC.adb.makgoraWon or 0) > 0 or (HC.adb.makgoraLost or 0) > 0)
-        end
+        -- Mak'gora is account-wide and the Account tab is its home, so always show
+        -- it there (even at 0/0) rather than treating it as off-class noise.
         if name == "Healing" then
             return (HC.db.healingDone or 0) > 0 or (HC.db.biggestHeal or 0) > 0
                 or (HC.db.playersSaved or 0) > 0

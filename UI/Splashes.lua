@@ -237,6 +237,14 @@ function HC:RandomCritSplash()
     PopFrame(GetComicFrame(0), art, x, y, sound, RANDOM_CD)
 end
 
+-- One-off demo splash for the welcome carousel: pops a random art at center
+-- regardless of the on/off setting, so the player can see it before deciding.
+function HC:PreviewSplash()
+    if splashPlacement then return end
+    local art = HC.SPLASH_ART[math.random(#HC.SPLASH_ART)][1]
+    PopFrame(GetComicFrame(0), art, math.random(-90, 90), math.random(-110, -30), "pow", 0)
+end
+
 -- Remember when a record was set, so the full window can flag it as "new!".
 function HC:StampRecord(statKey)
     if HC.db and HC.db.recordStamps then

@@ -22,9 +22,14 @@ StaticPopupDialogs["HST_RESET"] = {
             fullPoint = HC.db.fullPoint, fontSize = HC.db.fontSize, scale = HC.db.scale,
             lastWords = HC.db.lastWords, showVersion = HC.db.showVersion, mobTooltip = HC.db.mobTooltip,
             announce = HC.db.announce, welcomed = HC.db.welcomed, comicPops = HC.db.comicPops,
+            lastNewsVersion = HC.db.lastNewsVersion,
             comicRandom = HC.db.comicRandom, comicDuration = HC.db.comicDuration,
             comic = HC.db.comic, fullAlpha = HC.db.fullAlpha, miniAlpha = HC.db.miniAlpha,
             combatTimer = HC.db.combatTimer,
+            minimapButton = HC.db.minimapButton, minimapAngle = HC.db.minimapAngle,
+            miniMode = HC.db.miniMode,
+            barOffset = HC.db.barOffset, barDensity = HC.db.barDensity,
+            barScreenAdjust = HC.db.barScreenAdjust,
             playedTotal = HC.db.playedTotal, playedLevel = HC.db.playedLevel,
             -- The audit trail must survive a reset, or resetting would hide a
             -- faker's tracks. Bump the reset count here.
@@ -58,11 +63,17 @@ function HC:ShareStats(chan, e)
     local kb    = (e and e.killingBlows) or HC.db.killingBlows
     local crit  = (e and e.highestCrit) or HC.db.highestCrit
     local low   = (e and e.lowestPct) or HC.db.lowestPct
-    local parts = { "[HST] " .. name .. " lvl " .. level }
-    if alive then parts[#parts + 1] = "alive " .. FmtPlayed(alive) end
-    if (kb or 0) > 0 then parts[#parts + 1] = Comma(kb) .. " kills" end
+    local parts = { name .. " - level " .. level .. " hardcore" }
+    if alive then
+        parts[#parts + 1] = e and ("survived " .. FmtPlayed(alive)) or (FmtPlayed(alive) .. " alive")
+    end
+    if (kb or 0) > 0 then parts[#parts + 1] = Comma(kb) .. " killing blows" end
+    -- Toughest foe: live character only (memorial entries don't store it).
+    if not e and (HC.db.biggestLevelDiff or 0) > 0 then
+        parts[#parts + 1] = ("toughest foe +%d lvls"):format(HC.db.biggestLevelDiff)
+    end
     if (crit or 0) > 0 then parts[#parts + 1] = "biggest crit " .. Comma(crit) end
-    if low then parts[#parts + 1] = ("closest call %d%%"):format(math.floor(low)) end
+    if low then parts[#parts + 1] = ("closest call %d%% HP"):format(math.floor(low)) end
     HC.SayMessage(table.concat(parts, ", "):sub(1, 255), chan, true)
 end
 -- ---------------------------------------------------------------------------
@@ -84,6 +95,8 @@ SlashCmdList.HST = function(msg)
         HC:ToggleSplashPlacement()
     elseif msg == "welcome" then
         HC:ShowWelcome()
+    elseif msg == "news" or msg == "whatsnew" then
+        HC:ShowNews()
     elseif msg == "welcome reset" then
         HC.db.welcomed = nil
         HC:ShowWelcome()
@@ -196,7 +209,21 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         end
         HC.OnMoney()   -- baseline current money so session income is counted
         HC.state.playerGUID = UnitGUID("player")
-        HC.RestorePosition()
+        if HC.ApplyMiniMode then HC:ApplyMiniMode() else HC.RestorePosition() end
+        -- TitanPanel (and similar) lay out their bars AFTER us at login, so re-anchor
+        -- the bar AND re-push the minimap a few times until everything has settled -
+        -- otherwise the minimap only catches up on the next UI layout pass (~5s).
+        if C_Timer and C_Timer.After then
+            local function reassert()
+                if HC.db and HC.db.miniMode == "bar" then
+                    HC.RestorePosition()
+                    if HC.ApplyScreenAdjust then HC:ApplyScreenAdjust() end
+                end
+            end
+            C_Timer.After(0.5, reassert)
+            C_Timer.After(1.5, reassert)
+            C_Timer.After(3.0, reassert)
+        end
         HC:ApplyMiniAlpha()
         if HC.ApplyMinimapButton then HC:ApplyMinimapButton() end
         if HC.BuildOptions then HC:BuildOptions() end
@@ -205,6 +232,8 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC:UpdateDisplay()
         HC.RequestPlayed()
         print("|cffff4444Hardcore Stat Tracker|r loaded. /hst to toggle, config, or hover for details.")
+        -- "What's New" on update (checks welcomed, so call before we set it).
+        if HC.MaybeShowNews then HC:MaybeShowNews() end
         if not HC.db.welcomed then
             HC.db.welcomed = true
             -- a few seconds late so the world has settled in first

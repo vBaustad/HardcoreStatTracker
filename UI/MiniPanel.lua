@@ -22,9 +22,27 @@ HC.frame:SetBackdrop({
 HC.frame:SetBackdropColor(0.05, 0.04, 0.04, 0.8)
 HC.frame:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
 
+-- Panel mode uses the bordered tooltip backdrop. Bar mode drops the chunky border
+-- for a clean full-width strip, whose background is a plain texture (more reliable
+-- than a borderless backdrop table on a thin frame).
+local PANEL_BACKDROP = {
+    bgFile   = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 16,
+    insets = { left = 4, right = 4, top = 4, bottom = 4 },
+}
+HC.frame.barBG = HC.frame:CreateTexture(nil, "BACKGROUND")
+HC.frame.barBG:SetAllPoints()
+HC.frame.barBG:Hide()
+
 -- Applies the saved mini-panel opacity (called on login and from the slider).
+-- Panel uses the backdrop fill; bar uses the full-width strip (barBG) and keeps the
+-- inset backdrop fill transparent, so there aren't two stacked backgrounds.
 function HC:ApplyMiniAlpha()
-    HC.frame:SetBackdropColor(0.05, 0.04, 0.04, (HC.db and HC.db.miniAlpha) or 0.8)
+    local a = (HC.db and HC.db.miniAlpha) or 0.8
+    local bar = HC.db and HC.db.miniMode == "bar"
+    HC.frame:SetBackdropColor(0.05, 0.04, 0.04, bar and 0 or a)
+    HC.frame.barBG:SetColorTexture(0.05, 0.04, 0.04, a)
 end
 
 local STDFONT = HC.STDFONT
@@ -54,6 +72,102 @@ local function CreateMiniRow()
     return r
 end
 local function GetMiniRow(i) miniRows[i] = miniRows[i] or CreateMiniRow(); return miniRows[i] end
+
+-- ---------------------------------------------------------------------------
+-- Bar mode (full-width, Titan-style): a row of horizontal segments instead of
+-- the stacked box. Reuses HC.STATS / HC.ICONS / HC.STAT_HELP. See HC:UpdateBar.
+-- ---------------------------------------------------------------------------
+local barSegs   = {}                                   -- horizontal stat segments
+local measureFS = HC.frame:CreateFontString(nil, "OVERLAY")  -- hidden, for width measuring
+measureFS:Hide()
+local brand, moreBtn, openBtn                           -- skull identity, overflow chip, custom open button (lazy)
+
+local function TipAnchor() return "ANCHOR_BOTTOM" end   -- bar is always at the top, so tooltips hang below
+
+local function CreateBarSeg()
+    local s = CreateFrame("Button", nil, HC.frame)
+    s.icon = s:CreateTexture(nil, "ARTWORK")
+    s.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    s.icon:SetPoint("LEFT", 0, 0)
+    s.text = s:CreateFontString(nil, "OVERLAY")
+    s.text:SetPoint("LEFT", s.icon, "RIGHT", 3, 0)
+    s.text:SetJustifyH("LEFT")
+    s.sep = s:CreateTexture(nil, "ARTWORK")
+    s.sep:SetColorTexture(0.6, 0.1, 0.1, 0.5)
+    s.sep:SetWidth(1)
+    s:SetScript("OnEnter", function(self)
+        if not self._key then return end
+        GameTooltip:SetOwner(self, TipAnchor())
+        GameTooltip:AddLine(self._label or "", 1, 0.82, 0)
+        if self._value then GameTooltip:AddLine(self._value, 1, 1, 1) end
+        local help = HC.STAT_HELP[self._key]
+        if help then GameTooltip:AddLine(help, 0.8, 0.8, 0.8, true) end
+        GameTooltip:Show()
+    end)
+    s:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    s:SetScript("OnClick", function() HC:ToggleFull() end)
+    barSegs[#barSegs + 1] = s
+    return s
+end
+local function GetBarSeg(i) barSegs[i] = barSegs[i] or CreateBarSeg(); return barSegs[i] end
+
+local function EnsureBrand()
+    if brand then return brand end
+    brand = CreateFrame("Button", nil, HC.frame)
+    brand.icon = brand:CreateTexture(nil, "ARTWORK")
+    brand.icon:SetAllPoints()
+    brand.icon:SetTexture("Interface\\Icons\\INV_Misc_Bone_HumanSkull_01")
+    brand.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    brand:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    brand:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, TipAnchor())
+        GameTooltip:AddLine("Hardcore Stat Tracker", 1, 0.27, 0.27)
+        GameTooltip:AddLine("Click: full window    Right-click: settings", 0.8, 0.8, 0.8)
+        GameTooltip:Show()
+    end)
+    brand:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    brand:SetScript("OnClick", function(_, btn)
+        if btn == "RightButton" then if HC.OpenOptions then HC:OpenOptions() end
+        else HC:ToggleFull() end
+    end)
+    return brand
+end
+
+-- Custom themed open button (matches the full window's buttons). The clear way to
+-- open the full window: top-right on the panel, right side on the bar.
+local function EnsureOpen()
+    if openBtn then return openBtn end
+    openBtn = HC.MakeButton(HC.frame, "+", 22, 18)
+    openBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    openBtn:SetScript("OnClick", function(_, btn)
+        if btn == "RightButton" then if HC.OpenOptions then HC:OpenOptions() end
+        else HC:ToggleFull() end
+    end)
+    openBtn:HookScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, TipAnchor())
+        GameTooltip:AddLine("Hardcore Stat Tracker", 1, 0.27, 0.27)
+        GameTooltip:AddLine("Click: full window    Right-click: settings", 0.8, 0.8, 0.8)
+        GameTooltip:Show()
+    end)
+    openBtn:HookScript("OnLeave", function() GameTooltip:Hide() end)
+    return openBtn
+end
+
+local function EnsureMore()
+    if moreBtn then return moreBtn end
+    moreBtn = CreateFrame("Button", nil, HC.frame)
+    moreBtn.text = moreBtn:CreateFontString(nil, "OVERLAY")
+    moreBtn.text:SetPoint("LEFT", 0, 0)
+    moreBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, TipAnchor())
+        GameTooltip:AddLine("More stats", 1, 0.82, 0)
+        for _, line in ipairs(self._list or {}) do GameTooltip:AddLine(line, 1, 1, 1) end
+        GameTooltip:Show()
+    end)
+    moreBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    moreBtn:SetScript("OnClick", function() HC:ToggleFull() end)
+    return moreBtn
+end
 
 -- Marching-ants highlight: a dashed gold border that animates around a row for
 -- a few seconds after it sets a new record, so a glance shows what just changed.
@@ -99,7 +213,8 @@ local function StopDrag(self)
     if point and HC.db then HC.db.point = { point, relPoint, math.floor(x), math.floor(y) } end
 end
 HC.frame:SetScript("OnMouseDown", function(self, button)
-    if button == "LeftButton" and not (HC.db and HC.db.locked) then
+    -- Bar mode is edge-anchored, not draggable.
+    if button == "LeftButton" and not (HC.db and (HC.db.locked or HC.db.miniMode == "bar")) then
         self.moving = true
         self:StartMoving()
     end
@@ -108,10 +223,108 @@ HC.frame:SetScript("OnMouseUp", function(self) StopDrag(self) end)
 HC.frame:SetScript("OnHide", StopDrag)
 
 function HC.RestorePosition()
-    local p = HC.db.point or LAYOUT_DEFAULTS.point
     HC.frame:ClearAllPoints()
-    HC.frame:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+    if HC.db and HC.db.miniMode == "bar" then
+        -- Full width via a SINGLE anchor + explicit width (a frame sized by two
+        -- opposing anchors doesn't give its backdrop a real size, so the bg came
+        -- out invisible). TitanPanel exposes anchor frames at the edge of its bar
+        -- stack, so hang off those to auto-stack clear of it; else the screen edge.
+        local off = HC.db.barOffset or 0
+        HC.frame:SetWidth(UIParent:GetWidth())
+        local a = _G.TitanPanelTopAnchor
+        local rel = (a and a:IsShown()) and a or UIParent
+        local rp  = (rel == UIParent) and "TOPLEFT" or "BOTTOMLEFT"
+        HC.frame:SetPoint("TOPLEFT", rel, rp, 0, -off)
+    else
+        local p = (HC.db and HC.db.point) or LAYOUT_DEFAULTS.point
+        HC.frame:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+    end
 end
+
+-- Switch panel/bar mode: drag + clamp + scale differ, then re-anchor & redraw.
+-- Called on login and whenever a bar setting changes in the options page.
+function HC:ApplyMiniMode()
+    local bar = HC.db and HC.db.miniMode == "bar"
+    HC.frame:SetMovable(not bar)
+    HC.frame:SetClampedToScreen(not bar)
+    -- Keep the creation-time backdrop; bar mode just hides its border (the fill is
+    -- coloured by ApplyMiniAlpha). barBG stays as a belt-and-suspenders backup.
+    if bar then
+        HC.frame.barBG:Show()
+        HC.frame:SetBackdropBorderColor(0, 0, 0, 0)
+        HC.frame:SetScale(1)
+    else
+        HC.frame.barBG:Hide()
+        HC.frame:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
+    end
+    HC:ApplyMiniAlpha()                    -- colours the strip / backdrop for the mode
+    HC.RestorePosition()
+    HC:UpdateDisplay()
+    if HC.ApplyScreenAdjust then HC:ApplyScreenAdjust() end
+end
+
+-- Screen adjust: a TOP bar covers the minimap, so push the minimap cluster down to
+-- sit just below the bar (buffs + quest tracker hang off it in Classic, so they
+-- follow). See HC:ApplyScreenAdjust below for the taint-safe approach.
+local mmBaseline, mmLastX, mmLastY
+local function MinimapFollowBar()
+    local mc = _G.MinimapCluster
+    if not mc then return end
+    if not (HC.db and HC.db.miniMode == "bar" and HC.db.barScreenAdjust) then return end
+    -- Anchor to UIParent at the bar's live bottom, preserving the minimap's own
+    -- horizontal offset (screen geometry auto-accounts for TitanPanel above us).
+    local barBottom, uiTop = HC.frame:GetBottom(), UIParent:GetTop()
+    if not (barBottom and uiTop) then return end
+    local x = (mmBaseline and mmBaseline[1] and mmBaseline[1][4]) or 0
+    local y = (barBottom - uiTop) - 2
+    if x == mmLastX and y == mmLastY then return end
+    mmLastX, mmLastY = x, y
+    mc:ClearAllPoints()
+    mc:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", x, y)
+end
+
+-- Taint-safe screen adjust. We do NOT hook UIParent_ManageFramePositions or write
+-- the global UIPARENT_MANAGED_FRAME_POSITIONS table or call SetAttribute - all of
+-- those run/poke insecure data on the secure frame-management path and taint it
+-- (which blocked the LFG browse's protected Search()). Instead we only set the plain
+-- `ignoreFramePositionManager` field (a non-protected frame, exactly as TitanPanel
+-- does) so Blizzard leaves the minimap alone, then SetPoint it. It re-applies on
+-- login, settings changes, and PLAYER_ENTERING_WORLD / DISPLAY_SIZE_CHANGED.
+function HC:ApplyScreenAdjust()
+    local mc = _G.MinimapCluster
+    if not mc then return end
+    local on = HC.db and HC.db.miniMode == "bar" and HC.db.barScreenAdjust
+    if on then
+        if not mmBaseline then
+            mmBaseline = {}
+            for i = 1, mc:GetNumPoints() do mmBaseline[i] = { mc:GetPoint(i) } end
+        end
+        if mc.SetDontSavePosition then mc:SetDontSavePosition(true) end
+        mc.ignoreFramePositionManager = true
+        if _G.TitanMovable_AddonAdjust then _G.TitanMovable_AddonAdjust("MinimapCluster", true) end
+        MinimapFollowBar()
+    elseif mmBaseline then
+        -- Hand the minimap back to Blizzard / TitanPanel.
+        mmLastX, mmLastY = nil, nil
+        mc.ignoreFramePositionManager = nil
+        mc:ClearAllPoints()
+        for _, p in ipairs(mmBaseline) do mc:SetPoint(p[1], p[2], p[3], p[4] or 0, p[5] or 0) end
+        mmBaseline = nil
+        if _G.TitanMovable_AddonAdjust then _G.TitanMovable_AddonAdjust("MinimapCluster", false) end
+        if _G.TitanPanel_AdjustFrames then _G.TitanPanel_AdjustFrames(true, "HST released minimap") end
+    end
+end
+
+-- Re-assert bar anchoring + screen adjust after the UI (re)lays out.
+local barEvents = CreateFrame("Frame")
+barEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
+barEvents:RegisterEvent("DISPLAY_SIZE_CHANGED")
+barEvents:SetScript("OnEvent", function()
+    if HC.db and HC.db.miniMode == "bar" then
+        HC.RestorePosition()
+        if HC.ApplyScreenAdjust then HC:ApplyScreenAdjust() end
+    end
+end)
 
 -- ---------------------------------------------------------------------------
 -- Render
@@ -282,6 +495,7 @@ HC.STAT_HELP = {
 
 function HC:UpdateDisplay()
     if not HC.db then return end
+    if HC.db.miniMode == "bar" then return HC:UpdateBar() end
     HC.frame:SetScale(HC.db.scale or 1)
 
     local fs     = HC.db.fontSize or 12
@@ -350,6 +564,122 @@ function HC:UpdateDisplay()
     HC.frame:SetHeight(-y + 8)
     for i = 1, idx do miniRows[i]:SetWidth(width - PADX * 2) end
 
+    -- Make sure bar-mode widgets aren't lingering from a previous mode.
+    miniTitle:Show(); miniDivider:Show()
+    -- Custom open button at the top-right; the skull identity is bar-only.
+    local ob = EnsureOpen()
+    ob:ClearAllPoints(); ob:SetPoint("TOPRIGHT", HC.frame, "TOPRIGHT", -6, -6); ob:Show()
+    if brand then brand:Hide() end
+    if moreBtn then moreBtn:Hide() end
+    for _, s in ipairs(barSegs) do s:Hide() end
+
+    HC.frame:SetShown(HC.db.shown)
+    if HC.fullFrame and HC.fullFrame:IsShown() then HC:RefreshFull() end
+end
+
+-- Bar renderer: a full-width row of horizontal segments. Auto-density picks the
+-- richest label tier that fits the screen; overflow spills into a "+N more" tip.
+function HC:UpdateBar()
+    HC.frame:SetScale(1)
+    -- Hide panel-only chrome.
+    miniTitle:Hide(); miniDivider:Hide()
+    for _, r in ipairs(miniRows) do r:Hide(); HideAnts(r) end
+
+    local fs     = HC.db.fontSize or 12
+    local iconSz = fs + 2
+    local barH   = fs + 12
+    local MARGIN = 8
+    local SEP    = 12
+    local screenW = UIParent:GetWidth()
+
+    -- No skull on the bar; segments start at the left margin, open button on the right.
+    if brand then brand:Hide() end
+    local startX = MARGIN
+
+    local ob = EnsureOpen()
+    ob:ClearAllPoints(); ob:SetPoint("RIGHT", HC.frame, "RIGHT", -MARGIN, 0); ob:Show()
+    local rightReserve = (ob:GetWidth() or 22) + MARGIN + 6
+
+    -- Gather the visible stats. The combat line is kept SEPARATE so entering or
+    -- leaving combat never changes the density tier (no jarring resize mid-fight).
+    local items = {}
+    for _, s in ipairs(HC.STATS) do
+        if self:Visible(s[1]) then
+            local v = s[3]()
+            items[#items + 1] = { key = s[1], label = s[2], icon = HC.ICONS[s[1]], value = v or "--", dash = (v == nil) }
+        end
+    end
+    -- The live in-combat timer is intentionally NOT shown on the bar (it kept the
+    -- bar busy); it stays on the stacked mini panel only.
+
+    -- Width of one segment at a density tier: "a" = label+value, "b" = icon+value, "c" = value only.
+    measureFS:SetFont(STDFONT, fs, "")
+    local function segW(it, tier)
+        measureFS:SetText(tier == "a" and (it.label .. "  " .. it.value) or it.value)
+        local w = (measureFS:GetStringWidth() or 0) + 10
+        if tier ~= "c" then w = w + iconSz + 3 end
+        return w
+    end
+
+    -- Density tier is chosen from the STATS only (combat line excluded), so it
+    -- stays put in and out of combat. Honor a manual choice, else auto-fit.
+    local budget = screenW - startX - MARGIN - rightReserve
+    local chosen = HC.db.barDensity
+    if chosen == nil or chosen == "auto" then
+        chosen = "c"
+        for _, tier in ipairs({ "a", "b" }) do
+            local total = 0
+            for _, it in ipairs(items) do total = total + segW(it, tier) + SEP end
+            if total <= budget then chosen = tier; break end
+        end
+    end
+
+    local order = items
+
+    -- Lay out left-to-right until we run out of room; remainder -> "+N more".
+    local x, placed = startX, 0
+    for i, it in ipairs(order) do
+        local w = segW(it, chosen)
+        if x + w > screenW - MARGIN - rightReserve then break end
+        local seg = GetBarSeg(i)
+        seg._key, seg._statKey, seg._label = it.key, it.key, it.label
+        seg._value = it.dash and nil or it.value
+        if seg._fs ~= fs then seg._fs = fs; seg.text:SetFont(STDFONT, fs, "") end
+        seg:ClearAllPoints(); seg:SetPoint("LEFT", HC.frame, "LEFT", x, 0)
+        seg:SetSize(w, iconSz)
+        if chosen ~= "c" then
+            seg.icon:Show(); seg.icon:SetTexture(it.icon); seg.icon:SetSize(iconSz, iconSz)
+            seg.text:ClearAllPoints(); seg.text:SetPoint("LEFT", seg.icon, "RIGHT", 3, 0)
+        else
+            seg.icon:Hide()
+            seg.text:ClearAllPoints(); seg.text:SetPoint("LEFT", 0, 0)
+        end
+        local col = it.combat and "|cffff9900" or (it.dash and "|cff777777" or "|cffffd100")
+        local val = col .. it.value .. "|r"
+        seg.text:SetText(chosen == "a" and (it.label .. "  " .. val) or val)
+        seg.sep:ClearAllPoints(); seg.sep:SetPoint("LEFT", seg, "RIGHT", SEP / 2, 0); seg.sep:SetHeight(iconSz - 2)
+        seg.sep:Show()
+        seg:Show()
+        x, placed = x + w + SEP, i
+    end
+
+    -- Overflow indicator + hide leftover segments.
+    if placed < #order then
+        local m = EnsureMore()
+        if m._fs ~= fs then m._fs = fs; m.text:SetFont(STDFONT, fs, "") end
+        m.text:SetText(("|cffaaaaaa+%d more|r"):format(#order - placed))
+        m._list = {}
+        for i = placed + 1, #order do m._list[#m._list + 1] = order[i].label .. ":  " .. order[i].value end
+        m:ClearAllPoints(); m:SetPoint("LEFT", HC.frame, "LEFT", x, 0)
+        m:SetSize((m.text:GetStringWidth() or 30) + 6, iconSz); m:Show()
+        if placed > 0 then barSegs[placed].sep:Hide() end   -- no divider before "+N more"
+    elseif moreBtn then
+        moreBtn:Hide()
+        if placed > 0 then barSegs[placed].sep:Hide() end    -- last segment needs no trailing divider
+    end
+    for j = placed + 1, #barSegs do barSegs[j]:Hide() end
+
+    HC.frame:SetHeight(barH)
     HC.frame:SetShown(HC.db.shown)
     if HC.fullFrame and HC.fullFrame:IsShown() then HC:RefreshFull() end
 end
@@ -370,7 +700,9 @@ antsAnimator:SetScript("OnUpdate", function(_, elapsed)
         and HC.lastRecordStamp and (time() - HC.lastRecordStamp) < ANTS_FRESH
     if not on then
         if antsShown then
-            for _, r in ipairs(miniRows) do HideAnts(r) end
+            for _, pool in ipairs({ miniRows, barSegs }) do
+                for _, r in ipairs(pool) do HideAnts(r) end
+            end
             antsShown = false
         end
         return
@@ -378,31 +710,27 @@ antsAnimator:SetScript("OnUpdate", function(_, elapsed)
     antsShown = true
     antsOffset = (antsOffset + dt * ANTS_SPEED) % 1
     local stamps, now = HC.db.recordStamps, time()
-    for _, r in ipairs(miniRows) do
-        local stamp = r._statKey and stamps and stamps[r._statKey]
-        if r:IsShown() and stamp and (now - stamp) < ANTS_FRESH then
-            local a = EnsureAnts(r)
-            local rw = (r:GetWidth()  or 0) / ANTS_TILE
-            local rh = (r:GetHeight() or 0) / ANTS_TILE
-            a[1]:SetTexCoord( antsOffset,  antsOffset + rw, 0, 1)   -- top
-            a[2]:SetTexCoord(-antsOffset, -antsOffset + rw, 0, 1)   -- bottom
-            a[3]:SetTexCoord(0, 1, -antsOffset, -antsOffset + rh)   -- left
-            a[4]:SetTexCoord(0, 1,  antsOffset,  antsOffset + rh)   -- right
-            for _, t in ipairs(a) do t:Show() end
-        else
-            HideAnts(r)
+    for _, pool in ipairs({ miniRows, barSegs }) do
+        for _, r in ipairs(pool) do
+            local stamp = r._statKey and stamps and stamps[r._statKey]
+            if r:IsShown() and stamp and (now - stamp) < ANTS_FRESH then
+                local a = EnsureAnts(r)
+                local rw = (r:GetWidth()  or 0) / ANTS_TILE
+                local rh = (r:GetHeight() or 0) / ANTS_TILE
+                a[1]:SetTexCoord( antsOffset,  antsOffset + rw, 0, 1)   -- top
+                a[2]:SetTexCoord(-antsOffset, -antsOffset + rw, 0, 1)   -- bottom
+                a[3]:SetTexCoord(0, 1, -antsOffset, -antsOffset + rh)   -- left
+                a[4]:SetTexCoord(0, 1,  antsOffset,  antsOffset + rh)   -- right
+                for _, t in ipairs(a) do t:Show() end
+            else
+                HideAnts(r)
+            end
         end
     end
 end)
 
--- The [+] button on the mini frame opens the full window.
-local plus = CreateFrame("Button", nil, HC.frame)
-plus:SetSize(16, 16)
-plus:SetPoint("TOPRIGHT", -4, -4)
-plus:SetNormalTexture("Interface\\Buttons\\UI-PlusButton-Up")
-plus:SetPushedTexture("Interface\\Buttons\\UI-PlusButton-Down")
-plus:SetHighlightTexture("Interface\\Buttons\\UI-PlusButton-Hilight")
-plus:SetScript("OnClick", function() HC:ToggleFull() end)
+-- (The opener is the skull "brand" button - top-right in panel mode, left on the
+-- bar - created lazily via EnsureBrand and positioned by the renderers.)
 
 -- Periodic refresh + bulletproof drag release.
 local accum = 0

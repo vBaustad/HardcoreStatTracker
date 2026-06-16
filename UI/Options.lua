@@ -166,7 +166,7 @@ function HC:BuildOptions()
     local function chk(...) local cb = MakeCheck(panel, ...); controls[#controls + 1] = cb; return cb end
     local function sld(...) local s = MakeSlider(panel, ...); controls[#controls + 1] = s; return s end
 
-    -- LEFT: panel toggles + on-screen behaviours --------------------------------
+    -- LEFT: panel + addon-wide on-screen toggles -------------------------------
     MakeHeader(panel, "Panel", 16, -78)
     chk("shown", "Show the on-screen panel", 16, -100,
         function() return HC.db and HC.db.shown end,
@@ -175,51 +175,31 @@ function HC:BuildOptions()
     chk("locked", "Lock the panel in place", 16, -124,
         function() return HC.db and HC.db.locked end,
         function(v) HC.db.locked = v end,
-        "Stops the panel from being dragged by accident. Unlock to reposition it.")
+        "Stops the panel from being dragged by accident. Unlock to reposition it. (Bar mode is always edge-anchored.)")
 
     MakeHeader(panel, "On screen", 16, -158)
-    chk("combattimer", "Show in-combat timer", 16, -180,
-        function() return HC.db and HC.db.combatTimer ~= false end,
-        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
-        "Adds a live \"In Combat\" line to the panel during a fight, showing fight time and damage taken.")
-    chk("minihighlight", "Highlight new records on the panel", 16, -204,
-        function() return HC.db and HC.db.miniHighlight ~= false end,
-        function(v) HC.db.miniHighlight = v end,
-        "Animate a dashed gold border around a panel row for a few seconds after it sets a new record.")
-    chk("mobtip", "Show mob damage history on tooltips", 16, -228,
+    chk("mobtip", "Show mob damage history on tooltips", 16, -180,
         function() return HC.db and HC.db.mobTooltip end,
         function(v) HC.db.mobTooltip = v end,
         "Adds \"Has hit you for up to X\" to the tooltip of any mob that has hurt one of your characters before.")
-    chk("minimap", "Show a minimap button", 16, -252,
+    chk("minimap", "Show a minimap button", 16, -204,
         function() return HC.db and HC.db.minimapButton end,
         function(v) HC.db.minimapButton = v; if HC.ApplyMinimapButton then HC:ApplyMinimapButton() end end,
         "A button on the minimap: left-click for the full window, right-click for settings, drag to reposition.")
 
-    -- RIGHT: size / opacity sliders, grouped per window -------------------------
-    MakeHeader(panel, "Mini panel", 330, -78)
-    sld("scale", 360, -104, 0.7, 2.0, 0.1,
-        function(v) return ("Scale: %.1f"):format(v) end,
-        function() return HC.db and HC.db.scale or 1 end,
-        function(v) HC.db.scale = v; HC:UpdateDisplay() end,
-        "Overall size of the mini panel.")
-    sld("font", 360, -144, 9, 20, 1,
-        function(v) return "Text size: " .. v end,
-        function() return HC.db and HC.db.fontSize or 12 end,
-        function(v) HC.db.fontSize = v; HC:UpdateDisplay() end,
-        "Font size of the rows on the mini panel.")
-    sld("miniopacity", 360, -184, 0.2, 1.0, 0.05,
-        function(v) return ("Background: %.0f%%"):format(v * 100) end,
-        function() return HC.db and HC.db.miniAlpha or 0.8 end,
-        function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end,
-        "How solid the mini panel's dark background is.")
+    local miniNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    miniNote:SetPoint("TOPLEFT", 16, -242)
+    miniNote:SetWidth(290); miniNote:SetJustifyH("LEFT")
+    miniNote:SetText("Mini-panel size, opacity, wide-bar mode and which stats show now live on the Mini Panel tab.")
 
-    MakeHeader(panel, "Full window (the [+] window)", 330, -222)
-    sld("fullscale", 360, -248, 0.7, 1.6, 0.05,
+    -- RIGHT: full window sliders -----------------------------------------------
+    MakeHeader(panel, "Full window (the [+] window)", 330, -78)
+    sld("fullscale", 360, -104, 0.7, 1.6, 0.05,
         function(v) return ("Scale: %.2f"):format(v) end,
         function() return HC.db and HC.db.fullScale or 1 end,
         function(v) HC.db.fullScale = v; if HC.fullFrame then HC.fullFrame:SetScale(v) end end,
         "Size of the full stats window. Also adjustable live from its Display button.")
-    sld("fullopacity", 360, -288, 0.2, 1.0, 0.05,
+    sld("fullopacity", 360, -144, 0.2, 1.0, 0.05,
         function(v) return ("Background: %.0f%%"):format(v * 100) end,
         function() return HC.db and HC.db.fullAlpha or 0.97 end,
         function(v) HC.db.fullAlpha = v; if HC.fullFrame then HC.fullFrame:SetBackdropColor(0.05, 0.04, 0.04, v) end end,
@@ -264,34 +244,85 @@ function HC:BuildStatsOptions()
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("Mini Panel - stats to show")
+    title:SetText("Mini Panel")
 
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
     sub:SetWidth(560); sub:SetJustifyH("LEFT")
-    sub:SetText("Pick which stats appear on the small on-screen panel. The full window (the [+] "
-        .. "button on the panel, or /hst full) always lists every stat. Hover a checkbox for what it tracks.")
+    sub:SetText("Top section: how the panel looks, plus the full-width bar. The tabs below pick which "
+        .. "stats appear (the full window always lists everything). Hover anything for details.")
 
-    -- key -> settings label, and title -> keys, from the master stat list.
+    -- key -> settings label, and category title -> keys, from the master stat list.
     local labelOf, keysOf = {}, {}
     for _, s in ipairs(HC.STATS) do labelOf[s[1]] = s[2] end
     for _, g in ipairs(HC.STAT_GROUPS) do keysOf[g[1]] = g[2] end
 
     local controls = {}
 
-    -- Show all / Hide all every stat at once (handy now there are ~35).
+    -- ===== Display settings: ALWAYS shown, above the stat tabs =====
+    MakeHeader(panel, "Layout", 16, -60)
+    controls[#controls + 1] = MakeCheck(panel, "barmode", "Full-width bar (Titan-style)", 16, -82,
+        function() return HC.db and HC.db.miniMode == "bar" end,
+        function(v) HC.db.miniMode = v and "bar" or "panel"; if HC.ApplyMiniMode then HC:ApplyMiniMode() end end,
+        "Replace the stacked panel with a single full-width bar across the top or bottom of the screen - stats laid out left to right, fitting as many as will show.")
+    controls[#controls + 1] = MakeCheck(panel, "barscreen", "Adjust screen (push the minimap down)", 16, -104,
+        function() return HC.db and HC.db.barScreenAdjust end,
+        function(v) HC.db.barScreenAdjust = v; if HC.ApplyScreenAdjust then HC:ApplyScreenAdjust() end end,
+        "Push the minimap down so the bar doesn't cover it (the buffs and quest tracker hang off the minimap, so they move too). May need tweaking alongside TitanPanel.")
+    controls[#controls + 1] = MakeCheck(panel, "combattimer", "Show in-combat timer", 16, -126,
+        function() return HC.db and HC.db.combatTimer ~= false end,
+        function(v) HC.db.combatTimer = v; HC:UpdateDisplay() end,
+        "Adds a live \"In Combat\" entry showing fight time and damage taken. Stacked mini-panel only - the bar never shows it.")
+    controls[#controls + 1] = MakeCheck(panel, "minihighlight", "Highlight new records", 16, -148,
+        function() return HC.db and HC.db.miniHighlight ~= false end,
+        function(v) HC.db.miniHighlight = v end,
+        "Animate a dashed gold border around an entry for a few seconds after it sets a new record.")
+
+    MakeHeader(panel, "Size & opacity", 340, -60)
+    controls[#controls + 1] = MakeSlider(panel, "scale", 370, -84, 0.7, 2.0, 0.1,
+        function(v) return ("Scale: %.1f"):format(v) end,
+        function() return HC.db and HC.db.scale or 1 end,
+        function(v) HC.db.scale = v; HC:UpdateDisplay() end,
+        "Overall size of the mini panel. (Panel mode; the bar sizes to its text instead.)")
+    controls[#controls + 1] = MakeSlider(panel, "font", 370, -122, 9, 20, 1,
+        function(v) return "Text size: " .. v end,
+        function() return HC.db and HC.db.fontSize or 12 end,
+        function(v) HC.db.fontSize = v; HC:UpdateDisplay() end,
+        "Font size of the entries (and the bar's height).")
+    controls[#controls + 1] = MakeSlider(panel, "miniopacity", 370, -160, 0.2, 1.0, 0.05,
+        function(v) return ("Background: %.0f%%"):format(v * 100) end,
+        function() return HC.db and HC.db.miniAlpha or 0.8 end,
+        function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end,
+        "How solid the dark background is.")
+    controls[#controls + 1] = MakeSlider(panel, "baroffset", 370, -198, 0, 200, 2,
+        function(v) return ("Bar offset: %dpx"):format(v) end,
+        function() return HC.db and HC.db.barOffset or 0 end,
+        function(v) HC.db.barOffset = v; if HC.ApplyMiniMode then HC:ApplyMiniMode() end end,
+        "Nudge the bar away from the screen edge - handy to sit it just below Titan Panel or another bar. (Bar mode only.)")
+
+    -- Divider between the always-on settings and the stat tabs.
+    local div = panel:CreateTexture(nil, "ARTWORK")
+    div:SetColorTexture(0.6, 0.1, 0.1, 0.6); div:SetHeight(1)
+    div:SetPoint("TOPLEFT", 16, -222); div:SetPoint("TOPRIGHT", -16, -222)
+
+    -- ===== Stats to show: tabbed visibility grids =====
+    local statsCap = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    statsCap:SetPoint("TOPLEFT", 16, -230)
+    statsCap:SetText("|cffffd100Stats to show|r")
+
+    -- Show all / Hide all every stat at once.
     local function SetAllStats(v)
         for _, s in ipairs(HC.STATS) do HC:SetVisible(s[1], v) end
         RefreshControls(controls)
     end
     local showAllBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     showAllBtn:SetSize(80, 22)
-    showAllBtn:SetPoint("TOPRIGHT", -100, -16)
+    showAllBtn:SetPoint("TOPRIGHT", -100, -226)
     showAllBtn:SetText("Show all")
     showAllBtn:SetScript("OnClick", function() SetAllStats(true) end)
     local hideAllBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     hideAllBtn:SetSize(80, 22)
-    hideAllBtn:SetPoint("TOPRIGHT", -14, -16)
+    hideAllBtn:SetPoint("TOPRIGHT", -14, -226)
     hideAllBtn:SetText("Hide all")
     hideAllBtn:SetScript("OnClick", function() SetAllStats(false) end)
 
@@ -313,34 +344,34 @@ function HC:BuildStatsOptions()
         return y - math.ceil(#keys / 3) * 22 - 10
     end
 
-    -- Tabs keep each section short and aligned instead of one giant column.
+    -- Stat categories, rebalanced so no single tab is overloaded.
     local TABS = {
-        { "Survival",        { "Survival" } },
-        { "Combat & Healing", { "Combat", "Healing" } },
-        { "World & Wealth",  { "Pet", "Group", "Adventure", "Wealth", "Account", "Mak'gora", "Character" } },
+        { "Survival", { "Survival" } },
+        { "Combat",   { "Combat" } },
+        { "Heal/Pet", { "Healing", "Pet", "Group" } },
+        { "World",    { "Adventure", "Character", "Account" } },
+        { "Wealth",   { "Wealth", "Mak'gora" } },
     }
+    local CONTENT_Y = -276
     local containers, tabBtns = {}, {}
     local function ShowTab(active)
         for i, c in ipairs(containers) do c:SetShown(i == active) end
-        for i, b in ipairs(tabBtns) do
-            if i == active then b:Disable() else b:Enable() end
-        end
+        for i, b in ipairs(tabBtns) do b:SetSelected(i == active) end
     end
 
-    local bx = 16
+    -- Compact themed tab buttons (match the full window's look).
+    local bx, BW, BH, GAP = 16, 96, 22, 6
     for i, t in ipairs(TABS) do
-        local b = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-        b:SetSize(150, 22)
-        b:SetPoint("TOPLEFT", bx, -72)
-        b:SetText(t[1])
+        local b = HC.MakeButton(panel, t[1], BW, BH)
+        b:SetPoint("TOPLEFT", bx, -252)
         b:SetScript("OnClick", function() ShowTab(i) end)
         tabBtns[i] = b
-        bx = bx + 154
+        bx = bx + BW + GAP
 
         local c = CreateFrame("Frame", nil, panel)
         c:SetPoint("TOPLEFT"); c:SetPoint("BOTTOMRIGHT")
         containers[i] = c
-        local y = -104
+        local y = CONTENT_Y
         for _, gtitle in ipairs(t[2]) do
             y = renderCategory(c, gtitle, y)
         end
@@ -402,25 +433,63 @@ function HC:BuildSplashOptions()
         return value or "?"
     end
 
-    local function MakeDD(suffix, ddX, ddY, width, options, getV, setV, onPick)
-        local dd = CreateFrame("Frame", "HardcoreStatTrackerSplashDD_" .. suffix, panel, "UIDropDownMenuTemplate")
-        dd:SetPoint("TOPLEFT", ddX, ddY)
-        UIDropDownMenu_SetWidth(dd, width)
-        UIDropDownMenu_Initialize(dd, function(_, level)
-            for _, opt in ipairs(options) do
-                local info = UIDropDownMenu_CreateInfo()
-                info.text, info.value = opt[2], opt[1]
-                info.func = function(btn)
-                    setV(btn.value)
-                    UIDropDownMenu_SetSelectedValue(dd, btn.value)
-                    UIDropDownMenu_SetText(dd, opt[2])
-                    if onPick then onPick(btn.value) end
-                end
-                info.checked = (getV() == opt[1])
-                UIDropDownMenu_AddButton(info, level)
+    -- Custom dropdown. Deliberately NOT Blizzard's UIDropDownMenu: that system uses
+    -- shared globals (UIDROPDOWNMENU_OPEN_MENU etc.) that the LFG "Looking For Group"
+    -- browse also uses, and our insecure use of it tainted that path, blocking the
+    -- protected Search() (listings wouldn't load). This is fully self-contained:
+    -- a themed button + a shared popup list, touching no shared/secure state.
+    local ddMenu
+    local function OpenDDMenu(dd)
+        if not ddMenu then
+            ddMenu = CreateFrame("Frame", "HardcoreStatTrackerDDMenu", UIParent, "BackdropTemplate")
+            ddMenu:SetFrameStrata("FULLSCREEN_DIALOG"); ddMenu:SetToplevel(true)
+            ddMenu:SetClampedToScreen(true); ddMenu:EnableMouse(true)
+            ddMenu:SetBackdrop({
+                bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                tile = true, tileSize = 16, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 },
+            })
+            ddMenu:SetBackdropColor(0.05, 0.04, 0.04, 0.97)
+            ddMenu:SetBackdropBorderColor(0.6, 0.1, 0.1, 1)
+            tinsert(UISpecialFrames, "HardcoreStatTrackerDDMenu")   -- Escape closes
+            ddMenu.rows = {}
+        end
+        local f = ddMenu
+        if f:IsShown() and f._owner == dd then f:Hide(); return end   -- click again = toggle off
+        f._owner = dd
+        local opts, RH, W = dd._options, 18, math.max(dd._width or 100, 70)
+        for i, opt in ipairs(opts) do
+            local r = f.rows[i]
+            if not r then
+                r = CreateFrame("Button", nil, f)
+                local hl = r:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(1, 0.82, 0, 0.25)
+                r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+                r.text:SetPoint("LEFT", 6, 0); r.text:SetJustifyH("LEFT")
+                f.rows[i] = r
             end
-        end)
-        ddList[#ddList + 1] = { dd = dd, options = options, get = getV }
+            r:SetSize(W - 8, RH)
+            r:ClearAllPoints(); r:SetPoint("TOPLEFT", 4, -4 - (i - 1) * RH)
+            r.text:SetText(opt[2]); r._value = opt[1]
+            r:SetScript("OnClick", function(self)
+                dd._setV(self._value); dd:RefreshText()
+                if dd._onPick then dd._onPick(self._value) end
+                f:Hide()
+            end)
+            r:Show()
+        end
+        for i = #opts + 1, #f.rows do f.rows[i]:Hide() end
+        f:SetSize(W, 8 + #opts * RH)
+        f:ClearAllPoints(); f:SetPoint("TOPLEFT", dd, "BOTTOMLEFT", 0, -2)
+        f:Show(); f:Raise()
+    end
+
+    local function MakeDD(suffix, ddX, ddY, width, options, getV, setV, onPick)
+        local dd = HC.MakeButton(panel, "", width, 22)
+        dd:SetPoint("TOPLEFT", ddX, ddY)
+        dd._options, dd._getV, dd._setV, dd._onPick, dd._width = options, getV, setV, onPick, width
+        function dd:RefreshText() self:SetText(labelOf(self._options, self._getV())) end
+        dd:SetScript("OnClick", function(self) OpenDDMenu(self) end)
+        dd:RefreshText()
+        ddList[#ddList + 1] = dd
         return dd
     end
 
@@ -581,12 +650,10 @@ function HC:BuildSplashOptions()
         if not (HC.db and HC.db.comic) then return end
         RefreshControls(masters)
         local randomOn = HC.db.comicRandom
-        for _, e in ipairs(ddList) do
-            local v = e.get()
-            UIDropDownMenu_SetSelectedValue(e.dd, v)
-            UIDropDownMenu_SetText(e.dd, labelOf(e.options, v))
+        for _, dd in ipairs(ddList) do
+            dd:RefreshText()
             -- Random-on-crit mode ignores the per-slot dropdowns, so grey them out.
-            if randomOn then UIDropDownMenu_DisableDropDown(e.dd) else UIDropDownMenu_EnableDropDown(e.dd) end
+            if randomOn then dd:Disable(); dd:SetAlpha(0.4) else dd:Enable(); dd:SetAlpha(1) end
         end
         for i = 1, HC.SPLASH_SLOTS do
             HC.SplashArtTexture(rows[i].art, HC.db.comic[i].art)
@@ -602,7 +669,10 @@ function HC:BuildSplashOptions()
     end
     panel._splashRefresh = Refresh
     panel:SetScript("OnShow", Refresh)
-    panel:SetScript("OnHide", function() if artPicker then artPicker:Hide() end end)
+    panel:SetScript("OnHide", function()
+        if artPicker then artPicker:Hide() end
+        if ddMenu then ddMenu:Hide() end
+    end)
     Refresh()
 
     RegisterPage(panel, "Splashes", "Hardcore Stat Tracker")
