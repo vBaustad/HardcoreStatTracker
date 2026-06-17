@@ -115,6 +115,18 @@ function HC:StatData()
     d.goldSpent   = { label = "Gold Spent", value = GetCoinTextureString(HC.db.goldSpent or 0) }
     d.goldLooted  = { label = "Gold Looted", value = GetCoinTextureString(HC.db.goldLooted or 0) }
     d.bagsLooted  = { label = "Bags Looted", value = Comma(HC.db.bagsLooted) }
+    if HC.db.bestLootLink then
+        d.bestLoot = { label = "Best Loot", value = HC.db.bestLootLink,
+            notes = { string.format("item level %s, looted at level %s in %s",
+                tostring(HC.db.bestLootIlvl or "?"), tostring(HC.db.bestLootLevel or "?"),
+                HC.db.bestLootZone or "?") } }
+    else d.bestLoot = { label = "Best Loot", value = "--", dim = true } end
+    d.safetyTools  = { label = "Safety Tools Used", value = Comma(HC.db.safetyTools) }
+    d.itemsCrafted = { label = "Items Crafted", value = Comma(HC.db.itemsCrafted) }
+    local pn, ps
+    if HC.TopProfession then pn, ps = HC.TopProfession() end
+    if pn then d.topProfession = { label = "Top Profession", value = pn .. " " .. ps }
+    else d.topProfession = { label = "Top Profession", value = "--", dim = true } end
     d.makgoraWon  = { label = "Mak'gora Won", value = Comma(HC.adb and HC.adb.makgoraWon) }
     d.makgoraLost = { label = "Mak'gora Lost", value = Comma(HC.adb and HC.adb.makgoraLost) }
     d.highestLevel = { label = "Highest Level", value = Comma(HC.adb and HC.adb.highestLevel) }
@@ -182,6 +194,7 @@ local FULL_LAYOUT = {
     { key = "mostFoes",     icon = ICON .. "Ability_Warrior_Challange" },
     { key = "fights",       icon = ICON .. "Ability_Warrior_Revenge" },
     { key = "dmgTaken",     icon = ICON .. "Spell_Shadow_ShadowWordPain" },
+    { key = "safetyTools",  icon = ICON .. "INV_Potion_62" },
     { header = "Combat" },
     { key = "highestCrit",  icon = ICON .. "Ability_Rogue_Eviscerate" },
     { key = "biggestMelee", icon = ICON .. "INV_Sword_04" },
@@ -208,7 +221,11 @@ local FULL_LAYOUT = {
     { key = "quests",       icon = ICON .. "INV_Scroll_08" },
     { key = "zones",        icon = ICON .. "INV_Misc_Map_01" },
     { key = "jumps",        icon = ICON .. "Ability_Rogue_Sprint" },
+    { header = "Profession" },
+    { key = "topProfession", icon = ICON .. "INV_Misc_Wrench_01" },
+    { key = "itemsCrafted",  icon = ICON .. "Trade_BlackSmithing" },
     { header = "Wealth" },
+    { key = "bestLoot",     icon = ICON .. "INV_Misc_Gem_Diamond_02" },
     { key = "goldEarned",   icon = ICON .. "INV_Misc_Coin_01" },
     { key = "goldSpent",    icon = ICON .. "INV_Misc_Coin_04" },
     { key = "goldLooted",   icon = ICON .. "INV_Misc_Coin_02" },
@@ -225,7 +242,7 @@ local FULL_LAYOUT = {
 -- Sections are grouped into tabs so the window stays a sane height.
 local FULL_TABS = {
     { name = "Combat",  sections = { Survival = true, Combat = true, Healing = true } },
-    { name = "World",   sections = { Pet = true, Group = true, Adventure = true, Wealth = true } },
+    { name = "World",   sections = { Pet = true, Group = true, Adventure = true, Profession = true, Wealth = true } },
     { name = "Account", sections = { ["Account (all characters)"] = true, ["Mak'gora (account-wide)"] = true } },
 }
 local tabButtons = {}
@@ -269,8 +286,9 @@ auditFrame:SetScript("OnEnter", function(self)
 end)
 auditFrame:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-local fullClose = CreateFrame("Button", nil, full, "UIPanelCloseButton")
-fullClose:SetPoint("TOPRIGHT", 2, 2)
+-- Custom-styled close button (matches the themed buttons) in the top-right corner.
+local fullClose = HC.MakeButton(full, "X", 24, 20)
+fullClose:SetPoint("TOPRIGHT", -8, -8)
 fullClose:SetScript("OnClick", function() full:Hide() end)
 
 -- Top-left "Memorial" button: opens the death memorial / fallen-heroes roll.
@@ -278,8 +296,9 @@ local memBtn = HC.MakeButton(full, "Memorial", 84, 20)
 memBtn:SetPoint("TOPLEFT", 8, -8)
 memBtn:SetScript("OnClick", function() if HC.ShowMemorial then HC:ShowMemorial() end end)
 
+-- "What's New" sits on the right, just left of the close button.
 local newsBtn = HC.MakeButton(full, "What's New", 90, 20)
-newsBtn:SetPoint("LEFT", memBtn, "RIGHT", 6, 0)
+newsBtn:SetPoint("RIGHT", fullClose, "LEFT", -6, 0)
 newsBtn:SetScript("OnClick", function() if HC.ShowNews then HC:ShowNews() end end)
 
 local cfgBtn = HC.MakeButton(full, "Settings", 100, 22)

@@ -30,6 +30,7 @@ StaticPopupDialogs["HST_RESET"] = {
             miniMode = HC.db.miniMode,
             barOffset = HC.db.barOffset, barDensity = HC.db.barDensity,
             barScreenAdjust = HC.db.barScreenAdjust,
+            barWidth = HC.db.barWidth, barX = HC.db.barX, barAlign = HC.db.barAlign,
             playedTotal = HC.db.playedTotal, playedLevel = HC.db.playedLevel,
             -- The audit trail must survive a reset, or resetting would hide a
             -- faker's tracks. Bump the reset count here.
@@ -197,8 +198,9 @@ HC.frame:RegisterEvent("PLAYER_DEAD")
 HC.frame:RegisterEvent("PLAYER_LOGOUT")  -- last chance to write a fresh integrity stamp
 -- player drives the low-health features; party1-4 power the "players saved" stat.
 HC.frame:RegisterUnitEvent("UNIT_HEALTH", "player", "party1", "party2", "party3", "party4")
+HC.frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")  -- "Safety tools used" detection
 
-HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
+HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     -- Some events (UNIT_HEALTH especially) can fire during the loading screen,
     -- before PLAYER_LOGIN has initialized the saved variables.
     if not HC.db and event ~= "PLAYER_LOGIN" then return end
@@ -276,6 +278,8 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2)
         HC.OnLootMoney(arg1)
     elseif event == "CHAT_MSG_LOOT" then
         HC.OnLoot(arg1)
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        HC.OnSpellSucceeded(arg1, arg3)   -- arg1 = unit, arg3 = spellID
     elseif event == "PLAYER_DEAD" then
         if HC.ClearAnnounce then HC:ClearAnnounce() end   -- never brag from the grave
         if not HC.db.died then                            -- a hardcore death: record it once, show the memorial

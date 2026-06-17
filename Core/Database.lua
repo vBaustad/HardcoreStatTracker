@@ -39,6 +39,11 @@ local RECORD_DEFAULTS = {
     goldSpent      = 0,    -- lifetime spending (copper); every negative money change
     goldLooted     = 0,    -- coin picked up from loot only (copper)
     bagsLooted     = 0,    -- containers looted off corpses/chests (not bought)
+    bestLootLink   = nil,  -- best item ever looted as a drop (rarest, then highest ilvl)
+    bestLootName   = nil,  bestLootQuality = nil, bestLootIlvl = nil,
+    bestLootZone   = nil,  bestLootLevel = nil,
+    safetyTools    = 0,    -- HC panic buttons used (invuln/free-action/living-action pots, petrify flask, target dummies)
+    itemsCrafted   = 0,    -- lifetime tradeskill crafts (DoTradeSkill / DoCraft)
     biggestLevelDiff = nil, biggestLevelDiffMob = nil,
     biggestLevelDiffMyLevel = nil, biggestLevelDiffZone = nil,
     died           = false, -- this character has died (for the one-time memorial)
@@ -66,6 +71,9 @@ local LAYOUT_DEFAULTS = {
     barOffset   = 0,       -- bar mode: vertical nudge (px) to stack below other bars
     barScreenAdjust = false,-- bar mode (top): push the minimap cluster down so the bar doesn't cover it (opt-in; fragile alongside other minimap addons)
     barDensity  = "auto",  -- bar mode: "auto" | "a" (label+value) | "b" (icon+value) | "c" (value)
+    barWidth    = 0,       -- bar mode: custom width in px (0 = full screen; for ultrawide-but-narrow-stream setups)
+    barX        = 0,       -- bar mode: horizontal nudge (px) for a custom-width bar (centred on screen by default)
+    barAlign    = "left",  -- bar mode: which way the STATS grow inside the bar - "left" (grow right) | "center" | "right" (grow left)
     point      = { "CENTER", "CENTER", 250, 0 },
 }
 
@@ -181,6 +189,13 @@ function HC.ApplyDefaults()
     if (HardcoreStatTrackerDB.showVersion or 0) < 13 then
         if HardcoreStatTrackerDB.show.drowned == nil then HardcoreStatTrackerDB.show.drowned = false end
         HardcoreStatTrackerDB.showVersion = 13
+    end
+    if (HardcoreStatTrackerDB.showVersion or 0) < 14 then
+        -- Self-found / survival additions: off by default, opt in per stat.
+        for _, k in ipairs({ "bestLoot", "safetyTools", "topProfession", "itemsCrafted" }) do
+            if HardcoreStatTrackerDB.show[k] == nil then HardcoreStatTrackerDB.show[k] = false end
+        end
+        HardcoreStatTrackerDB.showVersion = 14
     end
 
     if not HardcoreStatTrackerDB.lastWords then HardcoreStatTrackerDB.lastWords = {} end
@@ -339,6 +354,7 @@ local PROTECTED = {
     "biggestHeal", "biggestHealSpell", "biggestHealTarget", "healingDone", "playersSaved",
     "petDeaths", "partyDeaths", "buffsGiven",
     "quests", "zones", "jumps", "goldEarned", "goldSpent", "goldLooted", "bagsLooted",
+    "bestLootName", "bestLootQuality", "bestLootIlvl", "safetyTools", "itemsCrafted",
     "resets", "tamperCount", "tamperedEver",
 }
 table.sort(PROTECTED)

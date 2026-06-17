@@ -16,6 +16,13 @@ HC.AddonVersion = AddonVersion
 -- When shipping a version, add its entry here AND bump the .toc Version to match,
 -- so the panel fires for players who update to it.
 HC.NEWS = {
+    ["1.8.0"] = {
+        "|cffffd100New self-found stats|r - Best Loot, Safety Tools Used, Items Crafted, and Top Profession. Turn them on from the Mini Panel settings page.",
+        "|cffffd100Best Loot|r tracks the best blue/epic you've found in the open world (dungeon and raid drops don't count).",
+        "|cffffd100Bar width & alignment|r - give the full-width bar a custom width and choose which way the stats fill it (great for ultrawide streamers).",
+        "|cffffd100Toughest Foe|r now only counts enemies you actually killed, not just ones you traded blows with.",
+        "|cffffd100Fixed|r - Pet Deaths now count reliably, and never miscount on a revive or re-summon.",
+    },
     ["1.7.0"] = {
         "|cffffd100Full-width bar|r - the mini panel can become a Titan-style bar across the top of the screen (Mini Panel -> Display -> Full-width bar).",
         "|cffffd100Visual splash picker|r - choose comic-splash art from a gallery of images instead of a text dropdown.",
@@ -24,7 +31,7 @@ HC.NEWS = {
         "|cffffd100Fixed|r - an addon conflict that could block the Looking For Group listings.",
     },
 }
-HC.NEWS_ORDER = { "1.7.0" }   -- newest first; HC:ShowNews() with no arg uses [1]
+HC.NEWS_ORDER = { "1.8.0", "1.7.0" }   -- newest first; HC:ShowNews() with no arg uses [1]
 
 function HC:ShowNews(version)
     version = version or HC.NEWS_ORDER[1]

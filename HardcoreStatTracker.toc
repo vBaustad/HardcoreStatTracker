@@ -2,7 +2,7 @@
 ## Title: Hardcore Stat Tracker
 ## Notes: Hardcore stat tracker - closest calls, biggest hits, toughest foes, pet/party deaths, famous last words, and more.
 ## Author: vebjorn
-## Version: 1.7.0
+## Version: 1.8.0
 ## IconTexture: Interface\Icons\INV_Misc_Bone_HumanSkull_01
 ## SavedVariables: HardcoreStatTrackerAccountDB, HCStatsAccountDB
 ## SavedVariablesPerCharacter: HardcoreStatTrackerDB, HCStatsDB

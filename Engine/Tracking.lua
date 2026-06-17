@@ -17,21 +17,32 @@ local lwAlertFire  = -999
 -- per-fight trackers (reset each combat)
 local fightAttackers = {}  -- set of enemy GUIDs currently alive that have hit you this fight
 local liveFoes       = 0   -- count of those still alive (for "Most Foes at Once")
+local foeLevels      = {}  -- enemyGUID -> level gap recorded while fighting; only credited to Toughest Foe on a kill
 local fightWentLow   = false
 local fightLowPct    = 100   -- lowest HP% reached this fight (for guild "clutch survival")
 local untouchedStart = nil -- GetTime() of last hit taken (or combat start)
 HC.state.combatSnapshot = nil -- record values at combat start, for new-record announces
 local CLUTCH_THRESHOLD = 10 -- % HP that makes surviving a fight a "clutch save"
--- pet tracking: petGUID is the last *living* pet, kept so a UNIT_DIED line can
--- be matched even though UNIT_PET may fire in the same instant.
-local petGUID = nil
+-- Remember the last living pet's name purely as a label fallback for the death log;
+-- death/kill attribution itself uses combat-log flags (see IsMyPetFlags), not this.
 local petName = nil
 function HC.UpdatePet()
     if UnitExists("pet") and UnitGUID("pet") then
-        petGUID = UnitGUID("pet")
         petName = UnitName("pet")
     end
     if HC.UpdateDisplay then HC:UpdateDisplay() end
+end
+
+-- Identify the player's OWN pet straight from combat-log flags - robust against the
+-- petGUID cache being stale/nil (the old approach silently missed deaths). TYPE_PET
+-- is the controllable pet (not guardians/totems); MINE = it belongs to you. Only an
+-- actual death fires UNIT_DIED, so reviving or re-summoning never counts.
+local bit_band = bit and bit.band
+local CL_PET   = COMBATLOG_OBJECT_TYPE_PET or 0x00001000
+local CL_MINE  = COMBATLOG_OBJECT_AFFILIATION_MINE or 0x00000001
+local function IsMyPetFlags(flags)
+    return flags ~= nil and bit_band ~= nil
+        and bit_band(flags, CL_PET) ~= 0 and bit_band(flags, CL_MINE) ~= 0
 end
 
 -- Map of current groupmates' GUIDs -> names, so a UNIT_DIED can be attributed.
@@ -102,6 +113,39 @@ end
 -- Bags looted: count containers (bags, quivers, pouches) you actually loot off
 -- corpses/chests - never vendor purchases, which don't fire a loot line. enUS
 -- loot text: "You receive loot: [Item].' / '...[Item]xN.'.
+-- Best loot: keep the rarest item ever looted as a drop (ties broken by item level).
+-- Quest/crafted items use "You receive item:" so they never reach here - drops only.
+-- Quality: 0 poor, 1 common, 2 uncommon (green), 3 rare (blue), 4 epic, 5 legendary.
+local BEST_LOOT_MIN_QUALITY = 3   -- only blue and above are interesting; ignore grey/white/green
+local function CommitBestLoot(link, name, quality, ilvl)
+    if not quality or quality < BEST_LOOT_MIN_QUALITY then return end
+    ilvl = ilvl or 0
+    local bq = HC.db.bestLootQuality
+    if bq == nil or quality > bq or (quality == bq and ilvl > (HC.db.bestLootIlvl or 0)) then
+        HC.db.bestLootLink    = link
+        HC.db.bestLootName    = name
+        HC.db.bestLootQuality = quality
+        HC.db.bestLootIlvl    = ilvl
+        HC.db.bestLootZone    = GetZoneText()
+        HC.db.bestLootLevel   = UnitLevel("player")
+        if HC.ComicEvent then HC:ComicEvent("bestLoot") end  -- "new!" flag + optional splash
+        HC:UpdateDisplay()
+    end
+end
+
+local function TryBestLoot(link)
+    local name, _, quality, ilvl = GetItemInfo(link)
+    if quality then
+        CommitBestLoot(link, name, quality, ilvl)
+    elseif C_Timer and C_Timer.After then
+        -- Item not cached yet this instant; re-check once it is.
+        C_Timer.After(0.5, function()
+            local n2, _, q2, il2 = GetItemInfo(link)
+            if q2 and HC.db then CommitBestLoot(link, n2, q2, il2) end
+        end)
+    end
+end
+
 function HC.OnLoot(msg)
     if not HC.db or not msg then return end
     local link, count = msg:match("You receive loot: (|c.-|r)x?(%d*)")
@@ -111,6 +155,75 @@ function HC.OnLoot(msg)
     if classID == 1 then
         HC.db.bagsLooted = (HC.db.bagsLooted or 0) + (tonumber(count) or 1)
         HC:UpdateDisplay()
+    end
+    if not IsInInstance() then TryBestLoot(link) end  -- Best Loot is open-world only (no dungeon/raid carries)
+end
+
+-- Safety tools: hardcore "panic button" consumables/items. Matched by spell ID
+-- (locale-proof, for the ones we're sure of) or by spell name as a fallback.
+local SAFETY_IDS = {
+    [3169]  = true,  -- Invulnerability (Limited Invulnerability Potion)
+    [6615]  = true,  -- Free Action (Free Action Potion)
+    [24364] = true,  -- Living Action (Living Action Potion)
+}
+local SAFETY_NAMES = {
+    ["invulnerability"]        = true,
+    ["free action"]            = true,
+    ["living action"]          = true,
+    ["flask of petrification"] = true,
+    ["petrification"]          = true,
+    ["target dummy"]           = true,
+    ["advanced target dummy"]  = true,
+    ["masterwork target dummy"] = true,
+}
+function HC.OnSpellSucceeded(unit, spellID)
+    if not HC.db or unit ~= "player" or not spellID then return end
+    local matched = SAFETY_IDS[spellID]
+    if not matched then
+        local n = GetSpellInfo(spellID)
+        if n and SAFETY_NAMES[n:lower()] then matched = true end
+    end
+    if matched then
+        HC.db.safetyTools = (HC.db.safetyTools or 0) + 1
+        HC:UpdateDisplay()
+    end
+end
+
+-- Highest profession skill right now, across all professions (primary + secondary).
+-- Live read - nothing stored. Returns name, skill or nil.
+function HC.TopProfession()
+    if not GetProfessions then return nil end
+    local bestName, bestSkill
+    local function consider(idx)
+        if not idx then return end
+        local name, _, rank = GetProfessionInfo(idx)
+        if name and rank and rank > 0 and (not bestSkill or rank > bestSkill) then
+            bestName, bestSkill = name, rank
+        end
+    end
+    local a, b, c, d, e, f = GetProfessions()
+    consider(a); consider(b); consider(c); consider(d); consider(e); consider(f)
+    if bestName then return bestName, bestSkill end
+end
+
+-- Items crafted: count each craft started. DoTradeSkill covers most professions
+-- (its 2nd arg is the repeat count); DoCraft covers Enchanting's separate API.
+if type(hooksecurefunc) == "function" then
+    if DoTradeSkill then
+        hooksecurefunc("DoTradeSkill", function(_, num)
+            if HC.db then
+                HC.db.itemsCrafted = (HC.db.itemsCrafted or 0) + (tonumber(num) or 1)
+                HC:UpdateDisplay()
+            end
+        end)
+    end
+    if DoCraft then
+        hooksecurefunc("DoCraft", function()
+            if HC.db then
+                HC.db.itemsCrafted = (HC.db.itemsCrafted or 0) + 1
+                HC:UpdateDisplay()
+            end
+        end)
     end
 end
 
@@ -297,23 +410,36 @@ function HC.OnHealth()
 end
 
 -- When a damaged enemy is your current target, record how far above you it is.
-local function SampleTargetLevel(enemyGUID, enemyName)
-    if not enemyGUID then return false end
+-- Toughest foe is credited only when you KILL the enemy. While fighting, cache the
+-- level gap of whichever enemy is your current target; the kill (PARTY_KILL) commits it.
+local function RecordFoeLevel(enemyGUID, enemyName)
+    if not enemyGUID then return end
     if not (UnitExists("target") and UnitGUID("target") == enemyGUID
             and UnitCanAttack("player", "target")) then
-        return false
+        return
     end
     local lvl = UnitLevel("target")
-    if not lvl or lvl <= 0 then return false end -- -1 = ?? (unknowable)
-    local diff = lvl - UnitLevel("player")
-    if not HC.db.biggestLevelDiff or diff > HC.db.biggestLevelDiff then
-        HC.db.biggestLevelDiff        = diff
-        HC.db.biggestLevelDiffMob     = enemyName or UnitName("target")
-        HC.db.biggestLevelDiffMyLevel = UnitLevel("player")
-        HC.db.biggestLevelDiffZone    = GetZoneText()
-        return true
+    if not lvl or lvl <= 0 then return end -- -1 = ?? (unknowable)
+    foeLevels[enemyGUID] = {
+        diff    = lvl - UnitLevel("player"),
+        name    = enemyName or UnitName("target"),
+        myLevel = UnitLevel("player"),
+        zone    = GetZoneText(),
+    }
+end
+
+-- On a kill, promote the cached level gap to the Toughest Foe record (new max only).
+local function CommitToughestFoe(enemyGUID)
+    local rec = enemyGUID and foeLevels[enemyGUID]
+    if not rec then return end
+    foeLevels[enemyGUID] = nil
+    if not HC.db.biggestLevelDiff or rec.diff > HC.db.biggestLevelDiff then
+        HC.db.biggestLevelDiff        = rec.diff
+        HC.db.biggestLevelDiffMob     = rec.name
+        HC.db.biggestLevelDiffMyLevel = rec.myLevel
+        HC.db.biggestLevelDiffZone    = rec.zone
+        HC:ComicEvent("toughestFoe")
     end
-    return false
 end
 
 -- Append to a death log, keeping it bounded (only the recent tail is shown).
@@ -334,9 +460,11 @@ function HC.OnCombatLog()
     if sub == "PARTY_KILL" then
         if srcGUID == HC.state.playerGUID then
             HC.db.killingBlows = HC.db.killingBlows + 1
+            CommitToughestFoe(dstGUID)        -- only foes you actually kill count
             HC:UpdateDisplay()
-        elseif petGUID and srcGUID == petGUID then
+        elseif IsMyPetFlags(srcFlags) then
             HC.db.petKillingBlows = (HC.db.petKillingBlows or 0) + 1
+            CommitToughestFoe(dstGUID)
             HC:UpdateDisplay()
         end
         return
@@ -347,13 +475,12 @@ function HC.OnCombatLog()
             fightAttackers[dstGUID] = nil
             liveFoes = liveFoes > 0 and liveFoes - 1 or 0
         end
-        if petGUID and dstGUID == petGUID then
+        if IsMyPetFlags(dstFlags) then
             HC.db.petDeaths = HC.db.petDeaths + 1
             PushLog(HC.db.petDeathLog, {
-                name = petName or dstName or "Pet",
+                name = dstName or petName or "Pet",
                 level = UnitLevel("player"), zone = GetZoneText(),
             })
-            petGUID = nil
             HC:UpdateDisplay()
         elseif partyGUIDs[dstGUID] then
             HC.db.partyDeaths = (HC.db.partyDeaths or 0) + 1
@@ -564,16 +691,12 @@ function HC.OnCombatLog()
         end
     end
 
-    -- Toughest foe: sample the level of whichever side isn't the player.
-    local enemyGUID, enemyName
+    -- Toughest foe: while fighting, cache the level of whichever side isn't the player.
+    -- It's only written to the record when you actually kill that enemy (PARTY_KILL).
     if srcGUID == HC.state.playerGUID then
-        enemyGUID, enemyName = dstGUID, dstName
+        RecordFoeLevel(dstGUID, dstName)
     elseif dstGUID == HC.state.playerGUID then
-        enemyGUID, enemyName = srcGUID, srcName
-    end
-    if SampleTargetLevel(enemyGUID, enemyName) then
-        changed = true
-        HC:ComicEvent("toughestFoe")
+        RecordFoeLevel(srcGUID, srcName)
     end
 
     if changed then HC:UpdateDisplay() end
@@ -586,6 +709,7 @@ function HC.OnCombatStart()
     HC.state.combatStart = GetTime()
     HC.state.curFightDmg = 0
     wipe(fightAttackers)
+    wipe(foeLevels)
     liveFoes       = 0
     fightWentLow   = false
     fightLowPct    = 100

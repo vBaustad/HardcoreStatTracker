@@ -229,12 +229,23 @@ function HC.RestorePosition()
         -- opposing anchors doesn't give its backdrop a real size, so the bg came
         -- out invisible). TitanPanel exposes anchor frames at the edge of its bar
         -- stack, so hang off those to auto-stack clear of it; else the screen edge.
-        local off = HC.db.barOffset or 0
-        HC.frame:SetWidth(UIParent:GetWidth())
+        -- barOffset = vertical nudge; barWidth = full screen (0) or custom px;
+        -- barX = horizontal nudge for a custom-width bar (e.g. centre it inside a
+        -- narrower stream capture). Where the STATS sit inside the bar is a separate
+        -- setting (barAlign) handled in UpdateBar, not here.
+        local off  = HC.db.barOffset or 0
+        local xoff = HC.db.barX or 0
+        local bw   = HC.db.barWidth or 0
+        local full = not (bw > 0)
+        HC.frame:SetWidth(full and UIParent:GetWidth() or bw)
         local a = _G.TitanPanelTopAnchor
-        local rel = (a and a:IsShown()) and a or UIParent
-        local rp  = (rel == UIParent) and "TOPLEFT" or "BOTTOMLEFT"
-        HC.frame:SetPoint("TOPLEFT", rel, rp, 0, -off)
+        local rel  = (a and a:IsShown()) and a or UIParent
+        local base = (rel == UIParent) and "TOP" or "BOTTOM"   -- top edge to hang from
+        if full then
+            HC.frame:SetPoint("TOPLEFT", rel, base .. "LEFT", 0, -off)
+        else
+            HC.frame:SetPoint("TOP", rel, base, xoff, -off)     -- centred on screen, nudged by barX
+        end
     else
         local p = (HC.db and HC.db.point) or LAYOUT_DEFAULTS.point
         HC.frame:SetPoint(p[1], UIParent, p[2], p[3], p[4])
@@ -383,20 +394,27 @@ HC.STATS = {
     { "goldSpent",    "Gold Spent",     function() return GetCoinTextureString(HC.db.goldSpent or 0) end },
     { "goldLooted",   "Gold Looted",    function() return GetCoinTextureString(HC.db.goldLooted or 0) end },
     { "bagsLooted",   "Bags Looted",    function() return Num(HC.db.bagsLooted) end },
+    { "bestLoot",     "Best Loot",      function() return HC.db.bestLootLink end },
+    { "safetyTools",  "Safety Tools Used", function() return Num(HC.db.safetyTools) end },
+    { "itemsCrafted", "Items Crafted",  function() return Num(HC.db.itemsCrafted) end },
+    { "topProfession", "Top Profession", function()
+        if not HC.TopProfession then return nil end
+        local n, s = HC.TopProfession(); return n and (n .. " " .. s) end },
 }
 
 -- Stats grouped by category (mirrors the full window's sections). Used by the
 -- settings "Mini Panel" page to lay the visibility toggles out by theme.
 HC.STAT_GROUPS = {
     { "Survival",  { "closestCall", "nearestDeath", "biggestHit", "highestFall", "panic",
-                     "clutchSaves", "untouched", "mostFoes", "fights", "dmgTaken" } },
+                     "clutchSaves", "untouched", "mostFoes", "fights", "dmgTaken", "safetyTools" } },
     { "Combat",    { "highestCrit", "biggestMelee", "biggestRanged", "biggestSpell", "biggestAbility",
                      "killingBlows", "dmgDone", "longestFight", "mostDmgFight", "toughestFoe" } },
     { "Healing",   { "biggestHeal", "healingDone", "playersSaved" } },
     { "Pet",       { "currentPet", "petDeaths", "petKillingBlows" } },
     { "Group",     { "partyDeaths", "buffsGiven" } },
     { "Adventure", { "quests", "zones", "jumps" } },
-    { "Wealth",    { "goldEarned", "goldSpent", "goldLooted", "bagsLooted" } },
+    { "Profession", { "topProfession", "itemsCrafted" } },
+    { "Wealth",    { "bestLoot", "goldEarned", "goldSpent", "goldLooted", "bagsLooted" } },
     { "Account",   { "highestLevel", "level60s", "drowned" } },
     { "Mak'gora",  { "makgoraWon", "makgoraLost" } },
     { "Character", { "timeAlive" } },
@@ -421,6 +439,10 @@ HC.ICONS = {
     goldSpent    = ICONP .. "INV_Misc_Coin_04",
     goldLooted   = ICONP .. "INV_Misc_Coin_02",
     bagsLooted   = ICONP .. "INV_Misc_Bag_10",
+    bestLoot     = ICONP .. "INV_Misc_Gem_Diamond_02",
+    safetyTools  = ICONP .. "INV_Potion_62",
+    itemsCrafted = ICONP .. "Trade_BlackSmithing",
+    topProfession = ICONP .. "INV_Misc_Wrench_01",
     highestFall  = ICONP .. "Spell_Magic_FeatherFall",
     longestFight = ICONP .. "Ability_DualWield",
     mostDmgFight = ICONP .. "Spell_Fire_Fireball02",
@@ -466,10 +488,14 @@ HC.STAT_HELP = {
     goldSpent    = "Every copper you've spent on this character, lifetime - vendor purchases, repairs, training, postage, auction deposits. All money going out.",
     goldLooted   = "Coin picked up directly from kills and loot, lifetime - vendor sales and quest rewards don't count.",
     bagsLooted   = "Containers (bags, quivers, pouches) you've looted off corpses and chests - lifetime. Bags bought from a vendor don't count.",
+    bestLoot     = "The best rare-or-better item you've looted from an open-world kill or chest (ties broken by item level), and where. Only blue and epic count - grey/white/green, dungeon/raid loot, quest rewards, and crafted items are ignored.",
+    safetyTools  = "Hardcore panic buttons you've used: Limited Invulnerability / Free Action / Living Action potions, Flask of Petrification, and target dummies. One count per use.",
+    itemsCrafted = "Items you've crafted at a profession, lifetime. Counts each craft you start (a queued batch counts per item).",
+    topProfession = "Your highest profession skill right now, across all your professions (primary and secondary). Updates live.",
     highestFall  = "The worst fall you've survived, as a share of your max HP at the time (the raw damage is shown too). A 230 fall is trivial at 5000 HP but nearly lethal at 300.",
     longestFight = "Your longest single stretch of combat.",
     mostDmgFight = "The most total damage you've taken within one fight.",
-    toughestFoe  = "The biggest level gap above you on an enemy you actually traded blows with (it must be your target while fighting). Skull-level mobs can't be measured.",
+    toughestFoe  = "The biggest level gap above you on an enemy you killed (it must have been your target during the fight). Skull-level mobs can't be measured.",
     killingBlows = "Kills where your own hit was the killing blow - assists and pet kills don't count.",
     petKillingBlows = "Kills where your pet landed the killing blow. Tracked separately from your own (handy for pet-only challenges).",
     panic        = "Times your health dropped to 20% or below. Counts once per dip and re-arms when you recover above 20%.",
@@ -590,18 +616,18 @@ function HC:UpdateBar()
     local barH   = fs + 12
     local MARGIN = 8
     local SEP    = 12
-    local screenW = UIParent:GetWidth()
+    local W      = HC.frame:GetWidth() or UIParent:GetWidth()   -- custom width or full (set in RestorePosition)
 
-    -- No skull on the bar; segments start at the left margin, open button on the right.
     if brand then brand:Hide() end
-    local startX = MARGIN
 
+    -- Open button sits at the right edge; stats live in the region left of it.
     local ob = EnsureOpen()
     ob:ClearAllPoints(); ob:SetPoint("RIGHT", HC.frame, "RIGHT", -MARGIN, 0); ob:Show()
-    local rightReserve = (ob:GetWidth() or 22) + MARGIN + 6
+    local regionL = MARGIN
+    local regionR = W - MARGIN - (ob:GetWidth() or 22) - 8
+    local availW  = math.max(0, regionR - regionL)
 
-    -- Gather the visible stats. The combat line is kept SEPARATE so entering or
-    -- leaving combat never changes the density tier (no jarring resize mid-fight).
+    -- Gather the visible stats. The combat line stays on the stacked panel only.
     local items = {}
     for _, s in ipairs(HC.STATS) do
         if self:Visible(s[1]) then
@@ -609,8 +635,6 @@ function HC:UpdateBar()
             items[#items + 1] = { key = s[1], label = s[2], icon = HC.ICONS[s[1]], value = v or "--", dash = (v == nil) }
         end
     end
-    -- The live in-combat timer is intentionally NOT shown on the bar (it kept the
-    -- bar busy); it stays on the stacked mini panel only.
 
     -- Width of one segment at a density tier: "a" = label+value, "b" = icon+value, "c" = value only.
     measureFS:SetFont(STDFONT, fs, "")
@@ -621,32 +645,45 @@ function HC:UpdateBar()
         return w
     end
 
-    -- Density tier is chosen from the STATS only (combat line excluded), so it
-    -- stays put in and out of combat. Honor a manual choice, else auto-fit.
-    local budget = screenW - startX - MARGIN - rightReserve
+    -- Density: honor a manual choice, else the richest tier that fits the region.
     local chosen = HC.db.barDensity
     if chosen == nil or chosen == "auto" then
         chosen = "c"
         for _, tier in ipairs({ "a", "b" }) do
-            local total = 0
+            local total = -SEP
             for _, it in ipairs(items) do total = total + segW(it, tier) + SEP end
-            if total <= budget then chosen = tier; break end
+            if total <= availW then chosen = tier; break end
         end
     end
 
-    local order = items
+    -- Measure at the chosen tier, then see how many segments fit, then align the
+    -- cluster within the region (left / center / right) when it doesn't fill it.
+    local widths = {}
+    for i, it in ipairs(items) do widths[i] = segW(it, chosen) end
+    local placed, used = 0, 0
+    for i = 1, #items do
+        local add = widths[i] + (placed > 0 and SEP or 0)
+        if used + add > availW then break end
+        used = used + add; placed = i
+    end
+    local overflow = placed < #items
+    local align = HC.db.barAlign or "left"
+    local startX = regionL
+    if not overflow then
+        if align == "right" then startX = regionR - used
+        elseif align == "center" then startX = regionL + (availW - used) / 2 end
+    end
 
-    -- Lay out left-to-right until we run out of room; remainder -> "+N more".
-    local x, placed = startX, 0
-    for i, it in ipairs(order) do
-        local w = segW(it, chosen)
-        if x + w > screenW - MARGIN - rightReserve then break end
+    -- Lay out the fitting segments left-to-right from startX.
+    local x = startX
+    for i = 1, placed do
+        local it = items[i]
         local seg = GetBarSeg(i)
         seg._key, seg._statKey, seg._label = it.key, it.key, it.label
         seg._value = it.dash and nil or it.value
         if seg._fs ~= fs then seg._fs = fs; seg.text:SetFont(STDFONT, fs, "") end
         seg:ClearAllPoints(); seg:SetPoint("LEFT", HC.frame, "LEFT", x, 0)
-        seg:SetSize(w, iconSz)
+        seg:SetSize(widths[i], iconSz)
         if chosen ~= "c" then
             seg.icon:Show(); seg.icon:SetTexture(it.icon); seg.icon:SetSize(iconSz, iconSz)
             seg.text:ClearAllPoints(); seg.text:SetPoint("LEFT", seg.icon, "RIGHT", 3, 0)
@@ -654,28 +691,27 @@ function HC:UpdateBar()
             seg.icon:Hide()
             seg.text:ClearAllPoints(); seg.text:SetPoint("LEFT", 0, 0)
         end
-        local col = it.combat and "|cffff9900" or (it.dash and "|cff777777" or "|cffffd100")
-        local val = col .. it.value .. "|r"
-        seg.text:SetText(chosen == "a" and (it.label .. "  " .. val) or val)
+        local col = it.dash and "|cff777777" or "|cffffd100"
+        seg.text:SetText(chosen == "a" and (it.label .. "  " .. col .. it.value .. "|r") or (col .. it.value .. "|r"))
         seg.sep:ClearAllPoints(); seg.sep:SetPoint("LEFT", seg, "RIGHT", SEP / 2, 0); seg.sep:SetHeight(iconSz - 2)
         seg.sep:Show()
         seg:Show()
-        x, placed = x + w + SEP, i
+        x = x + widths[i] + SEP
     end
 
-    -- Overflow indicator + hide leftover segments.
-    if placed < #order then
+    -- Overflow chip + hide leftover segments.
+    if overflow then
         local m = EnsureMore()
         if m._fs ~= fs then m._fs = fs; m.text:SetFont(STDFONT, fs, "") end
-        m.text:SetText(("|cffaaaaaa+%d more|r"):format(#order - placed))
+        m.text:SetText(("|cffaaaaaa+%d more|r"):format(#items - placed))
         m._list = {}
-        for i = placed + 1, #order do m._list[#m._list + 1] = order[i].label .. ":  " .. order[i].value end
+        for i = placed + 1, #items do m._list[#m._list + 1] = items[i].label .. ":  " .. items[i].value end
         m:ClearAllPoints(); m:SetPoint("LEFT", HC.frame, "LEFT", x, 0)
         m:SetSize((m.text:GetStringWidth() or 30) + 6, iconSz); m:Show()
-        if placed > 0 then barSegs[placed].sep:Hide() end   -- no divider before "+N more"
+        if placed > 0 then barSegs[placed].sep:Hide() end
     elseif moreBtn then
         moreBtn:Hide()
-        if placed > 0 then barSegs[placed].sep:Hide() end    -- last segment needs no trailing divider
+        if placed > 0 then barSegs[placed].sep:Hide() end
     end
     for j = placed + 1, #barSegs do barSegs[j]:Hide() end
 

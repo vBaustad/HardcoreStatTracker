@@ -25,6 +25,7 @@ HC.SPLASH_TRIGGERS = {
     { "untouched",     "Untouched Streak" },
     { "biggestHeal",   "Biggest Heal" },
     { "playersSaved",  "Player Saved" },
+    { "bestLoot",      "Best Loot (new best drop)" },
 }
 
 -- Art a splash can show (texture key in Media\ -> dropdown label).

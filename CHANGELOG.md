@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.8.0
+
+### New stats
+- **Best Loot** - the best blue or epic item you've looted from an open-world kill
+  or chest, with where you found it. Dungeon/raid loot, quest rewards, crafted items,
+  and anything below rare quality don't count - it's a self-found "best find."
+- **Safety Tools Used** - how many hardcore panic buttons you've burned: Limited
+  Invulnerability / Free Action / Living Action potions, Flask of Petrification, and
+  target dummies.
+- **Items Crafted** - lifetime count of things you've crafted at a profession.
+- **Top Profession** - your highest profession skill right now, across all professions.
+- All four are off by default - turn them on from the Mini Panel settings page
+  (Survival, Profession, and Wealth sections). The full window always lists them.
+
+### Mini panel
+- The **full-width bar** can now be a custom width and nudged left/right - handy if you
+  stream an ultrawide game but capture a narrower window. Set a width, then center it.
+- New **Stats: Left / Center / Right** option for which way the stats fill the bar
+  (start at the left and grow right, start at the right and grow left, or stay centered).
+
+### Full window
+- The close button is now a themed **X** that matches the rest of the window, and
+  **What's New** moved up next to it.
+
+### Fixes
+- **Toughest Foe** now only counts enemies you actually *killed* (it used to update just
+  from trading blows). Your existing record is kept.
+- **Pet Deaths** now detect reliably from the death itself, so a pet dying is always
+  counted - and reviving or re-summoning a pet never miscounts.
+
 ## 1.7.0
 
 ### Fixes

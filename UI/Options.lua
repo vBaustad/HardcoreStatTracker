@@ -66,9 +66,9 @@ local function MakeCheck(parent, name, label, x, y, getter, setter, tooltip, com
     return cb
 end
 
-local function MakeSlider(parent, name, x, y, lo, hi, step, fmt, getter, setter, tooltip)
+local function MakeSlider(parent, name, x, y, lo, hi, step, fmt, getter, setter, tooltip, width)
     local s = CreateFrame("Slider", "HardcoreStatTrackerSlider_" .. name, parent, "OptionsSliderTemplate")
-    s:SetWidth(200)
+    s:SetWidth(width or 200)
     s:SetPoint("TOPLEFT", x, y)
     s:SetMinMaxValues(lo, hi)
     s:SetValueStep(step)
@@ -294,20 +294,54 @@ function HC:BuildStatsOptions()
         function() return HC.db and HC.db.miniAlpha or 0.8 end,
         function(v) HC.db.miniAlpha = v; if HC.ApplyMiniAlpha then HC:ApplyMiniAlpha() end end,
         "How solid the dark background is.")
-    controls[#controls + 1] = MakeSlider(panel, "baroffset", 370, -198, 0, 200, 2,
-        function(v) return ("Bar offset: %dpx"):format(v) end,
+    -- ===== Full-width bar: stat direction + custom size/position (all bar-only) =====
+    -- One row: where the stats fill the bar, then its width / horizontal nudge /
+    -- vertical nudge. The narrow strip is for streamers whose capture is narrower
+    -- than an ultrawide game.
+    MakeHeader(panel, "Full-width bar", 16, -174)
+
+    local alignNames = { left = "Left", center = "Center", right = "Right" }
+    local alignOrder = { "left", "center", "right" }
+    local alignBtn = HC.MakeButton(panel, "", 110, 20)
+    alignBtn:SetPoint("TOPLEFT", 16, -202)
+    local function setAlignText() alignBtn:SetText("Stats: " .. (alignNames[(HC.db and HC.db.barAlign) or "left"] or "Left")) end
+    alignBtn:SetScript("OnClick", function()
+        local cur, idx = (HC.db.barAlign or "left"), 1
+        for i, a in ipairs(alignOrder) do if a == cur then idx = i end end
+        HC.db.barAlign = alignOrder[(idx % #alignOrder) + 1]
+        setAlignText()
+        if HC.ApplyMiniMode then HC:ApplyMiniMode() end
+    end)
+    setAlignText()
+    AddTooltip(alignBtn, "Stat direction",
+        "Which way the stats fill the bar. Left = start at the left, grow right. Right = start at the right, grow left. Center = always centred. Click to cycle. (Bar mode only.)")
+
+    controls[#controls + 1] = MakeSlider(panel, "barwidth", 150, -202, 0, 3840, 20,
+        function(v) return v <= 0 and "Width: Full" or ("Width: %d"):format(v) end,
+        function() return HC.db and HC.db.barWidth or 0 end,
+        function(v) HC.db.barWidth = v; if HC.ApplyMiniMode then HC:ApplyMiniMode() end end,
+        "Bar width in px (Full = whole screen). Pair a custom width with 'Stats: Center' and the X offset to keep the bar inside a narrower stream capture. (Bar mode only.)", 120)
+
+    controls[#controls + 1] = MakeSlider(panel, "barx", 300, -202, -1920, 1920, 10,
+        function(v) return v == 0 and "X: Centered" or ("X: %d"):format(v) end,
+        function() return HC.db and HC.db.barX or 0 end,
+        function(v) HC.db.barX = v; if HC.ApplyMiniMode then HC:ApplyMiniMode() end end,
+        "Slide a custom-width bar left or right (centred on screen at 0). No effect at Full width. (Bar mode only.)", 120)
+
+    controls[#controls + 1] = MakeSlider(panel, "baroffset", 450, -202, 0, 200, 2,
+        function(v) return ("Y: %d"):format(v) end,
         function() return HC.db and HC.db.barOffset or 0 end,
         function(v) HC.db.barOffset = v; if HC.ApplyMiniMode then HC:ApplyMiniMode() end end,
-        "Nudge the bar away from the screen edge - handy to sit it just below Titan Panel or another bar. (Bar mode only.)")
+        "Nudge the bar down from the top edge - handy to sit it just below Titan Panel or another bar. (Bar mode only.)", 120)
 
     -- Divider between the always-on settings and the stat tabs.
     local div = panel:CreateTexture(nil, "ARTWORK")
     div:SetColorTexture(0.6, 0.1, 0.1, 0.6); div:SetHeight(1)
-    div:SetPoint("TOPLEFT", 16, -222); div:SetPoint("TOPRIGHT", -16, -222)
+    div:SetPoint("TOPLEFT", 16, -234); div:SetPoint("TOPRIGHT", -16, -234)
 
     -- ===== Stats to show: tabbed visibility grids =====
     local statsCap = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    statsCap:SetPoint("TOPLEFT", 16, -230)
+    statsCap:SetPoint("TOPLEFT", 16, -242)
     statsCap:SetText("|cffffd100Stats to show|r")
 
     -- Show all / Hide all every stat at once.
@@ -317,12 +351,12 @@ function HC:BuildStatsOptions()
     end
     local showAllBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     showAllBtn:SetSize(80, 22)
-    showAllBtn:SetPoint("TOPRIGHT", -100, -226)
+    showAllBtn:SetPoint("TOPRIGHT", -100, -238)
     showAllBtn:SetText("Show all")
     showAllBtn:SetScript("OnClick", function() SetAllStats(true) end)
     local hideAllBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     hideAllBtn:SetSize(80, 22)
-    hideAllBtn:SetPoint("TOPRIGHT", -14, -226)
+    hideAllBtn:SetPoint("TOPRIGHT", -14, -238)
     hideAllBtn:SetText("Hide all")
     hideAllBtn:SetScript("OnClick", function() SetAllStats(false) end)
 
@@ -349,10 +383,10 @@ function HC:BuildStatsOptions()
         { "Survival", { "Survival" } },
         { "Combat",   { "Combat" } },
         { "Heal/Pet", { "Healing", "Pet", "Group" } },
-        { "World",    { "Adventure", "Character", "Account" } },
+        { "World",    { "Adventure", "Profession", "Character", "Account" } },
         { "Wealth",   { "Wealth", "Mak'gora" } },
     }
-    local CONTENT_Y = -276
+    local CONTENT_Y = -288
     local containers, tabBtns = {}, {}
     local function ShowTab(active)
         for i, c in ipairs(containers) do c:SetShown(i == active) end
@@ -363,7 +397,7 @@ function HC:BuildStatsOptions()
     local bx, BW, BH, GAP = 16, 96, 22, 6
     for i, t in ipairs(TABS) do
         local b = HC.MakeButton(panel, t[1], BW, BH)
-        b:SetPoint("TOPLEFT", bx, -252)
+        b:SetPoint("TOPLEFT", bx, -264)
         b:SetScript("OnClick", function() ShowTab(i) end)
         tabBtns[i] = b
         bx = bx + BW + GAP
