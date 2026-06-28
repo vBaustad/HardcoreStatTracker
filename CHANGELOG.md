@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.9.0
+
+### Season of Discovery & non-Hardcore support
+- HST now adapts to the game version. On **Season of Discovery** and other non-Hardcore
+  realms it hides the permadeath-only bits and leans into combat:
+  - **Famous Last Words**, the **Memorial**, and death recording are skipped.
+  - The survival / death-proximity stats (Closest Call, Nearest Death, Panic Moments,
+    Untouched Streak, Clutch Saves, Safety Tools, Drowned, Pet/Party Deaths) are hidden and
+    no longer tracked - they don't mean much when you respawn (and Closest Call / Nearest
+    Death used to get stuck at 0 after a death).
+  - **"Time Alive"** is shown as **"Time Played."**
+- Hardcore is recognised from the realm ruleset **or** a running Hardcore addon, so
+  community-Hardcore players keep the full feature set.
+
+### Fixes
+- In **full-width bar** mode (with screen-adjust on), the top-center displays now sit *below*
+  the bar instead of overlapping it - the centered event bar (e.g. Season of Discovery's
+  Ashenvale progress) and the battleground / objective score display.
+- **Players Saved** no longer keeps a list of names - just the running count.
+- **Minimap button** sits cleanly on the ring at the right size, with a hover glow, and
+  scales with the minimap instead of drifting off the edge when it's resized.
+
 ## 1.8.0
 
 ### New stats

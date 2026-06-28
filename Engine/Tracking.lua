@@ -333,7 +333,8 @@ function HC.OnHealth()
     if not max or max == 0 or hp <= 0 then return end
     local pct = hp / max * 100
 
-    if not HC.db.lowestPct or pct < HC.db.lowestPct then
+    -- Survival proximity (closest call) - Hardcore-only: it zeroes out on every respawn off HC.
+    if HC.hcFeatures ~= false and (not HC.db.lowestPct or pct < HC.db.lowestPct) then
         HC.db.lowestPct    = pct
         HC.db.lowestHP     = hp
         HC.db.lowestMax    = max
@@ -344,9 +345,9 @@ function HC.OnHealth()
         HC:UpdateDisplay()
     end
 
-    -- Time-to-death: current HP divided by recent incoming damage rate.
+    -- Time-to-death (nearest death) - Hardcore-only for the same reason.
     local dps = RecentDPS()
-    if dps > 0 then
+    if HC.hcFeatures ~= false and dps > 0 then
         local ttd = hp / dps
         if not HC.db.closestSeconds or ttd < HC.db.closestSeconds then
             HC.db.closestSeconds   = ttd
@@ -362,8 +363,10 @@ function HC.OnHealth()
     if pct <= PANIC_THRESHOLD then
         if not wasBelow then
             wasBelow = true
-            HC.db.panicMoments = HC.db.panicMoments + 1
-            HC:UpdateDisplay()
+            if HC.hcFeatures ~= false then   -- "panic moments" is a Hardcore-only stat
+                HC.db.panicMoments = HC.db.panicMoments + 1
+                HC:UpdateDisplay()
+            end
         end
     else
         wasBelow = false
@@ -379,8 +382,9 @@ function HC.OnHealth()
     -- threshold +5, short cooldown.
     local lw = HC.db.lastWords
     if lw then
-        -- Famous Last Words: cocky chat line (needs the FLW master + chat on).
-        if lw.enabled and lw.say then
+        -- Famous Last Words: cocky chat line (needs the FLW master + chat on). Permadeath
+        -- flavour, so it's Hardcore-only (flag checks first - the API call only runs if it's on).
+        if lw.enabled and lw.say and HC.HardcoreFeatures() then
             local th = lw.sayThreshold or 15
             if pct <= th and not lwSayArmed then
                 lwSayArmed = true
@@ -557,10 +561,6 @@ function HC.OnCombatLog()
         if direct and eff > 0 and dstGUID ~= HC.state.playerGUID and partyGUIDs[dstGUID]
                 and lowSince[dstGUID] and (GetTime() - lowSince[dstGUID] < SAVE_WINDOW) then
             HC.db.playersSaved = (HC.db.playersSaved or 0) + 1
-            PushLog(HC.db.playerSavedLog, {
-                name = partyGUIDs[dstGUID] or dstName or "?",
-                level = UnitLevel("player"), zone = GetZoneText(),
-            })
             lowSince[dstGUID] = nil   -- count once per close call (re-arms when they recover)
             changedHeal = true
             HC:ComicEvent("playersSaved")

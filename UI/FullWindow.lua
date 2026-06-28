@@ -10,7 +10,7 @@ local STDFONT = HC.STDFONT
 function HC:StatData()
     local d = {}
     local a, lt = HC.LiveAlive(), HC.LiveLevelTime()
-    d.timeAlive = { label = "Time Alive", value = a and FmtPlayed(a) or "--", dim = not a,
+    d.timeAlive = { label = (HC.hcFeatures == false) and "Time Played" or "Time Alive", value = a and FmtPlayed(a) or "--", dim = not a,
         color = { 0.3, 1, 0.3 }, notes = (a and lt) and { "this level: " .. FmtPlayed(lt) } or nil }
 
     if HC.db.lowestPct then
@@ -51,14 +51,8 @@ function HC:StatData()
 
     d.biggestHeal = { label = "Biggest Heal", value = Comma(HC.db.biggestHeal) }
     d.healingDone = { label = "Total Healing", value = FmtShort(HC.db.healingDone) }
-    local snotes, slog = {}, HC.db.playerSavedLog or {}
-    for i = #slog, math.max(1, #slog - 4), -1 do
-        local p = slog[i]
-        snotes[#snotes + 1] = string.format("%s - lvl %s, %s", p.name or "?",
-            tostring(p.level or "?"), p.zone or "?")
-    end
-    d.playersSaved = { label = "Players Saved", value = Comma(HC.db.playersSaved),
-        notes = #snotes > 0 and snotes or nil }
+    -- Just the running count - no per-player name list under it.
+    d.playersSaved = { label = "Players Saved", value = Comma(HC.db.playersSaved) }
 
     if HC.db.highestFall then
         local val = HC.db.highestFallPct and (math.floor(HC.db.highestFallPct) .. "%") or Comma(HC.db.highestFall)
@@ -291,10 +285,12 @@ local fullClose = HC.MakeButton(full, "X", 24, 20)
 fullClose:SetPoint("TOPRIGHT", -8, -8)
 fullClose:SetScript("OnClick", function() full:Hide() end)
 
--- Top-left "Memorial" button: opens the death memorial / fallen-heroes roll.
+-- Top-left "Memorial" button: opens the death memorial / fallen-heroes roll. Permadeath
+-- feature, so HC:ApplyFlavor() hides it off Hardcore once the flavour is known (on login).
 local memBtn = HC.MakeButton(full, "Memorial", 84, 20)
 memBtn:SetPoint("TOPLEFT", 8, -8)
 memBtn:SetScript("OnClick", function() if HC.ShowMemorial then HC:ShowMemorial() end end)
+HC.memBtn = memBtn
 
 -- "What's New" sits on the right, just left of the close button.
 local newsBtn = HC.MakeButton(full, "What's New", 90, 20)
@@ -564,7 +560,8 @@ function HC:RefreshFull()
 
     local a, lt = HC.LiveAlive(), HC.LiveLevelTime()
     if a then
-        local t = "|cff4dff4dAlive: " .. FmtPlayed(a) .. "|r"
+        local word = (HC.hcFeatures == false) and "Played" or "Alive"
+        local t = "|cff4dff4d" .. word .. ": " .. FmtPlayed(a) .. "|r"
         if lt then t = t .. "   |cff888888this level: " .. FmtPlayed(lt) .. "|r" end
         aliveLine:SetText(t)
     else
@@ -623,6 +620,15 @@ function HC:RefreshFull()
             -- skipped, but if the player put any of its stats on the mini panel we
             -- honor that here - showing ONLY those opted-in stats, not the whole
             -- (mostly-zero) section. Relevant sections still show everything.
+            -- Hardcore-only stats are dropped entirely off a Hardcore realm (relevant sections
+            -- otherwise show everything, so the mini-panel Visible filter wouldn't catch them).
+            if HC.hcFeatures == false and HC.HC_ONLY_STATS then
+                local f = {}
+                for _, it in ipairs(items) do
+                    if not HC.HC_ONLY_STATS[it.key] then f[#f + 1] = it end
+                end
+                items = f
+            end
             local shown = items
             if not SectionRelevant(header) then
                 shown = {}

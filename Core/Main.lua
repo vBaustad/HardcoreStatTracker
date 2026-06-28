@@ -64,7 +64,7 @@ function HC:ShareStats(chan, e)
     local kb    = (e and e.killingBlows) or HC.db.killingBlows
     local crit  = (e and e.highestCrit) or HC.db.highestCrit
     local low   = (e and e.lowestPct) or HC.db.lowestPct
-    local parts = { name .. " - level " .. level .. " hardcore" }
+    local parts = { name .. " - level " .. level .. ((HC.hcFeatures == false) and "" or " hardcore") }
     if alive then
         parts[#parts + 1] = e and ("survived " .. FmtPlayed(alive)) or (FmtPlayed(alive) .. " alive")
     end
@@ -228,6 +228,7 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         end
         HC:ApplyMiniAlpha()
         if HC.ApplyMinimapButton then HC:ApplyMinimapButton() end
+        if HC.ApplyFlavor then HC:ApplyFlavor() end   -- detect flavour + gate permadeath-only UI/stats (before options build)
         if HC.BuildOptions then HC:BuildOptions() end
         HC.UpdatePet()
         if HC.UpdateAccountLevel then HC.UpdateAccountLevel() end
@@ -282,7 +283,9 @@ HC.frame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
         HC.OnSpellSucceeded(arg1, arg3)   -- arg1 = unit, arg3 = spellID
     elseif event == "PLAYER_DEAD" then
         if HC.ClearAnnounce then HC:ClearAnnounce() end   -- never brag from the grave
-        if not HC.db.died then                            -- a hardcore death: record it once, show the memorial
+        -- Permadeath bookkeeping (memorial, death count) is Hardcore-only: off non-HC realms
+        -- you respawn, so recording a "death" memorial would be wrong.
+        if HC.HardcoreFeatures() and not HC.db.died then  -- a hardcore death: record it once, show the memorial
             HC.db.died = true
             if HC.adb then
                 HC.adb.deaths = (HC.adb.deaths or 0) + 1

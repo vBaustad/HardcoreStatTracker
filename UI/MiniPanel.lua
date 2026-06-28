@@ -294,6 +294,31 @@ local function MinimapFollowBar()
     mc:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", x, y)
 end
 
+-- Push the top-centre Blizzard frames down below a TOP bar: the centred event widget
+-- container (SoD's Ashenvale progress lives here) and the BG / objective score display.
+-- EVENT-DRIVEN ONLY - we deliberately do NOT hook their OnShow. That hook fired during
+-- Blizzard's own (sometimes secure) widget updates and tainted the LFG Search() path; the
+-- 1.9.0 build reverted it for that reason. Same ignoreFramePositionManager + SetPoint as the
+-- minimap, re-applied from the bar events below (which dispatch in an insecure context).
+local TOPCENTER_FRAMES = { "UIWidgetTopCenterContainerFrame", "WorldStateAlwaysUpFrame" }
+local function TopCenterFollowBar()
+    local on = HC.db and HC.db.miniMode == "bar" and HC.db.barScreenAdjust
+    local barBottom, uiTop = HC.frame:GetBottom(), UIParent:GetTop()
+    local y = (on and barBottom and uiTop) and ((barBottom - uiTop) - 2) or nil
+    for _, name in ipairs(TOPCENTER_FRAMES) do
+        local f = _G[name]
+        if f then
+            if y then
+                f.ignoreFramePositionManager = true
+                f:ClearAllPoints()
+                f:SetPoint("TOP", UIParent, "TOP", 0, y)
+            else
+                f.ignoreFramePositionManager = nil   -- hand it back; Blizzard re-lays it out
+            end
+        end
+    end
+end
+
 -- Taint-safe screen adjust. We do NOT hook UIParent_ManageFramePositions or write
 -- the global UIPARENT_MANAGED_FRAME_POSITIONS table or call SetAttribute - all of
 -- those run/poke insecure data on the secure frame-management path and taint it
@@ -302,46 +327,74 @@ end
 -- does) so Blizzard leaves the minimap alone, then SetPoint it. It re-applies on
 -- login, settings changes, and PLAYER_ENTERING_WORLD / DISPLAY_SIZE_CHANGED.
 function HC:ApplyScreenAdjust()
-    local mc = _G.MinimapCluster
-    if not mc then return end
     local on = HC.db and HC.db.miniMode == "bar" and HC.db.barScreenAdjust
-    if on then
-        if not mmBaseline then
-            mmBaseline = {}
-            for i = 1, mc:GetNumPoints() do mmBaseline[i] = { mc:GetPoint(i) } end
+
+    -- Minimap cluster (buffs + quest tracker hang off it in Classic, so they follow).
+    local mc = _G.MinimapCluster
+    if mc then
+        if on then
+            if not mmBaseline then
+                mmBaseline = {}
+                for i = 1, mc:GetNumPoints() do mmBaseline[i] = { mc:GetPoint(i) } end
+            end
+            if mc.SetDontSavePosition then mc:SetDontSavePosition(true) end
+            mc.ignoreFramePositionManager = true
+            if _G.TitanMovable_AddonAdjust then _G.TitanMovable_AddonAdjust("MinimapCluster", true) end
+            MinimapFollowBar()
+        elseif mmBaseline then
+            -- Hand the minimap back to Blizzard / TitanPanel.
+            mmLastX, mmLastY = nil, nil
+            mc.ignoreFramePositionManager = nil
+            mc:ClearAllPoints()
+            for _, p in ipairs(mmBaseline) do mc:SetPoint(p[1], p[2], p[3], p[4] or 0, p[5] or 0) end
+            mmBaseline = nil
+            if _G.TitanMovable_AddonAdjust then _G.TitanMovable_AddonAdjust("MinimapCluster", false) end
+            if _G.TitanPanel_AdjustFrames then _G.TitanPanel_AdjustFrames(true, "HST released minimap") end
         end
-        if mc.SetDontSavePosition then mc:SetDontSavePosition(true) end
-        mc.ignoreFramePositionManager = true
-        if _G.TitanMovable_AddonAdjust then _G.TitanMovable_AddonAdjust("MinimapCluster", true) end
-        MinimapFollowBar()
-    elseif mmBaseline then
-        -- Hand the minimap back to Blizzard / TitanPanel.
-        mmLastX, mmLastY = nil, nil
-        mc.ignoreFramePositionManager = nil
-        mc:ClearAllPoints()
-        for _, p in ipairs(mmBaseline) do mc:SetPoint(p[1], p[2], p[3], p[4] or 0, p[5] or 0) end
-        mmBaseline = nil
-        if _G.TitanMovable_AddonAdjust then _G.TitanMovable_AddonAdjust("MinimapCluster", false) end
-        if _G.TitanPanel_AdjustFrames then _G.TitanPanel_AdjustFrames(true, "HST released minimap") end
     end
+
+    TopCenterFollowBar()
 end
 
--- Re-assert bar anchoring + screen adjust after the UI (re)lays out.
+-- Re-assert bar anchoring + screen adjust after the UI (re)lays out. UPDATE_UI_WIDGET catches
+-- a top-centre widget (e.g. the Ashenvale event bar) appearing while you're already in the
+-- zone; it's debounced because it fires rapidly. ZONE_CHANGED_NEW_AREA covers walking in.
 local barEvents = CreateFrame("Frame")
 barEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
 barEvents:RegisterEvent("DISPLAY_SIZE_CHANGED")
-barEvents:SetScript("OnEvent", function()
-    if HC.db and HC.db.miniMode == "bar" then
-        HC.RestorePosition()
-        if HC.ApplyScreenAdjust then HC:ApplyScreenAdjust() end
+barEvents:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+barEvents:RegisterEvent("UPDATE_UI_WIDGET")
+local tcPending
+barEvents:SetScript("OnEvent", function(_, event)
+    if not (HC.db and HC.db.miniMode == "bar") then return end
+    if event == "UPDATE_UI_WIDGET" then
+        if tcPending then return end
+        tcPending = true
+        C_Timer.After(0.1, function() tcPending = nil; TopCenterFollowBar() end)
+        return
     end
+    HC.RestorePosition()
+    if HC.ApplyScreenAdjust then HC:ApplyScreenAdjust() end
 end)
 
 -- ---------------------------------------------------------------------------
 -- Render
 -- ---------------------------------------------------------------------------
--- A stat is visible unless explicitly disabled in the settings page.
-function HC:Visible(key) return HC.db and HC.db.show and HC.db.show[key] ~= false end
+-- Survival / permadeath-anxiety stats that are noise (or actively break) off a Hardcore realm:
+-- closest-call and nearest-death zero out on every respawn; panic / untouched / clutch saves /
+-- safety tools are all about not dying; pet/party-death and drowned are death counters. Hidden
+-- (and not tracked) when HardcoreFeatures() is false - the combat + general stats stay.
+HC.HC_ONLY_STATS = {
+    closestCall = true, nearestDeath = true, panic = true, untouched = true,
+    clutchSaves = true, safetyTools = true, drowned = true,
+    petDeaths = true, partyDeaths = true,
+}
+
+-- A stat is visible unless explicitly disabled - or it's a Hardcore-only stat off Hardcore.
+function HC:Visible(key)
+    if HC.hcFeatures == false and HC.HC_ONLY_STATS[key] then return false end
+    return HC.db and HC.db.show and HC.db.show[key] ~= false
+end
 function HC:SetVisible(key, shown)
     if HC.db and HC.db.show then HC.db.show[key] = shown and true or false; HC:UpdateDisplay() end
 end

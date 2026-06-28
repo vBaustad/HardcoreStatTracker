@@ -4,14 +4,16 @@ local ADDON, HC = ...
 -- opens the full window, right-click opens settings, drag moves it around the
 -- minimap ring (position saved as an angle).
 
-local RADIUS = 80
 local btn
 
 local function UpdatePosition()
     if not btn then return end
     local angle = math.rad((HC.db and HC.db.minimapAngle) or 200)
+    -- Hug the minimap ring; scales with the minimap's actual size so the button
+    -- doesn't drift off the edge when the minimap is resized.
+    local r = (Minimap:GetWidth() / 2) + 5
     btn:ClearAllPoints()
-    btn:SetPoint("CENTER", Minimap, "CENTER", RADIUS * math.cos(angle), RADIUS * math.sin(angle))
+    btn:SetPoint("CENTER", Minimap, "CENTER", r * math.cos(angle), r * math.sin(angle))
 end
 
 local function OnDragUpdate()
@@ -35,7 +37,7 @@ function HC:CreateMinimapButton()
     btn:SetMovable(true)
 
     local icon = btn:CreateTexture(nil, "BACKGROUND")
-    icon:SetSize(20, 20)
+    icon:SetSize(17, 17)
     icon:SetTexture("Interface\\Icons\\INV_Misc_Bone_HumanSkull_01")
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     icon:SetPoint("TOPLEFT", 7, -6)
@@ -44,6 +46,9 @@ function HC:CreateMinimapButton()
     overlay:SetSize(53, 53)
     overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
     overlay:SetPoint("TOPLEFT")
+
+    -- Hover glow, matching Blizzard's own minimap buttons.
+    btn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
     btn:SetScript("OnClick", function(_, button)
         if button == "RightButton" then

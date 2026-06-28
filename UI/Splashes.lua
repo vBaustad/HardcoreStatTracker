@@ -258,6 +258,8 @@ end
 -- Called wherever a record stat improves; stamps it and pops every slot wired to it.
 function HC:ComicEvent(statKey)
     if not HC.db then return end
+    -- No splash for Hardcore-only stats off a Hardcore realm (they're hidden there too).
+    if HC.hcFeatures == false and HC.HC_ONLY_STATS and HC.HC_ONLY_STATS[statKey] then return end
     HC:StampRecord(statKey)            -- always stamp so the full window flags "new!"
     if HC.db.comicPops == false then return end
     if not HC.db.comic then return end

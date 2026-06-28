@@ -1,5 +1,69 @@
 local ADDON, HC = ...
 
+-- ---------------------------------------------------------------------------
+-- Game-flavour detection: which kind of Classic are we on? Lets the UI hide
+-- settings/features that don't apply (e.g. permadeath bits off Hardcore realms).
+-- ---------------------------------------------------------------------------
+
+-- Season of Discovery: rune engraving is the giveaway (only SoD has it enabled).
+function HC.IsSoD()
+    return (C_Engraving and C_Engraving.IsEngravingEnabled and C_Engraving.IsEngravingEnabled()) and true or false
+end
+
+-- Official Hardcore mode (permadeath ruleset on this realm/character).
+function HC.IsHardcore()
+    if C_GameRules and C_GameRules.IsHardcoreActive then
+        return C_GameRules.IsHardcoreActive() and true or false
+    end
+    return false
+end
+
+-- Short label for display ("Hardcore", "Season of Discovery", "Classic Era").
+function HC.FlavorName()
+    if HC.IsHardcore() then return "Hardcore" end
+    if HC.IsSoD() then return "Season of Discovery" end
+    return "Classic Era"
+end
+
+-- Whether to show the permadeath/Hardcore-only features (Famous Last Words, Memorial,
+-- death-on-PLAYER_DEAD recording, the survival stats). We treat it as Hardcore on ANY HC
+-- signal and as non-Hardcore only for Season of Discovery or a plain realm with no HC signal.
+-- The addon checks are essential: most "Hardcore" play on Era is the community ruleset on a
+-- NORMAL realm, where C_GameRules reports non-HC - relying on it alone would wrongly strip
+-- those players' features.
+local HC_ADDONS = { "Hardcore", "HardcoreUnlocked", "HardcoreAchievements" }
+function HC.HardcoreFeatures()
+    if HC.IsSoD() then return false end                                    -- SoD is never Hardcore
+    if C_GameRules and C_GameRules.IsHardcoreActive and C_GameRules.IsHardcoreActive() then
+        return true                                                        -- official Hardcore realm
+    end
+    local loaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or IsAddOnLoaded
+    if loaded then
+        for _, a in ipairs(HC_ADDONS) do
+            if loaded(a) then return true end                              -- community Hardcore addon
+        end
+    end
+    return false                                                           -- plain Classic Era, no HC signal
+end
+
+-- Apply flavour-dependent UI gating once the flavour is known (called on PLAYER_LOGIN). The
+-- Famous Last Words options page and the PLAYER_DEAD memorial are gated where they live; this
+-- handles the load-time UI (the full window's Memorial button).
+function HC:ApplyFlavor()
+    local hc = HC.HardcoreFeatures()
+    HC.hcFeatures = hc                       -- cached for the hot path (OnHealth) + stat gating
+    if HC.memBtn then HC.memBtn:SetShown(hc) end
+    if not hc then
+        -- Off Hardcore, "Time Alive" is just /played - relabel so it doesn't imply permadeath.
+        for _, s in ipairs(HC.STATS or {}) do
+            if s[1] == "timeAlive" then s[2] = "Time Played" end
+        end
+        if HC.STAT_HELP then
+            HC.STAT_HELP.timeAlive = "Your total /played time on this character. Server-authoritative, ticks live. The sub-line shows time at your current level."
+        end
+    end
+end
+
 -- Formatting helpers + shared font.
 
 function HC.Comma(n)

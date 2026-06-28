@@ -211,12 +211,13 @@ function HC:BuildOptions()
     resetBtn:SetPoint("TOPLEFT", 16, -328)
     resetBtn:SetText("Reset all records")
     resetBtn:SetScript("OnClick", function() StaticPopup_Show("HST_RESET") end)
+    local timeWord = (HC.hcFeatures == false) and "Time Played" or "Time Alive"
     AddTooltip(resetBtn, "Reset all records",
-        "Clears every record for this character. Time Alive and account-wide Mak'gora are kept. Asks first.")
+        "Clears every record for this character. " .. timeWord .. " and account-wide Mak'gora are kept. Asks first.")
 
     local resetNote = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     resetNote:SetPoint("LEFT", resetBtn, "RIGHT", 10, 0)
-    resetNote:SetText("Clears this character's records (keeps Time Alive). Asks first.")
+    resetNote:SetText("Clears this character's records (keeps " .. timeWord .. "). Asks first.")
 
     local function Refresh() if HC.db then RefreshControls(controls) end end
     panel:SetScript("OnShow", Refresh)
@@ -228,7 +229,8 @@ function HC:BuildOptions()
     -- Sub-pages, in display order.
     HC:BuildStatsOptions()
     HC:BuildSplashOptions()
-    HC:BuildLastWordsOptions()
+    -- Famous Last Words is a permadeath feature - only build its page on Hardcore.
+    if HC.HardcoreFeatures() then HC:BuildLastWordsOptions() end
     HC:BuildAlertOptions()
     HC:BuildAnnounceOptions()
 end
@@ -365,7 +367,13 @@ function HC:BuildStatsOptions()
     local function renderCategory(parent, gtitle, y)
         MakeHeader(parent, gtitle, 16, y)
         y = y - 22
-        local keys = keysOf[gtitle] or {}
+        -- Drop the Hardcore-only stats from the toggles off a Hardcore realm.
+        local keys = {}
+        for _, key in ipairs(keysOf[gtitle] or {}) do
+            if not (HC.hcFeatures == false and HC.HC_ONLY_STATS and HC.HC_ONLY_STATS[key]) then
+                keys[#keys + 1] = key
+            end
+        end
         for i, key in ipairs(keys) do
             local col = (i - 1) % 3
             local row = math.floor((i - 1) / 3)
